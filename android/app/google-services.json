@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "924136330473",
+    "project_id": "photoland-studio",
+    "storage_bucket": "photoland-studio.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:924136330473:android:9c2fb3481dacd3b9574c78",
+        "android_client_info": {
+          "package_name": "com.photoland.photolandapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBlgi8kCVAFCEZuYufcmnlny_obd0PvApY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
