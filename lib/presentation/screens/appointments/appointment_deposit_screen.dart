@@ -6,9 +6,9 @@ import '../../../core/utils/price_input_formatter.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../data/models/appointment_model.dart';
 import '../../../data/models/bank_model.dart';
-import '../../../data/models/service_model.dart';
 import '../../../data/repositories/appointment_repository.dart';
 import '../../../data/repositories/bank_repository.dart';
+import '../../../data/models/service_model.dart';
 import '../../widgets/custom_button.dart';
 
 class AppointmentDepositScreen extends StatefulWidget {
@@ -35,6 +35,7 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
   List<BankModel> _banks = [];
   bool _isLoading = false;
   bool _isLoadingBanks = true;
+  bool _isCashPayment = false; // 🔥 چک‌باکس دریافت نقدی
 
   @override
   void initState() {
@@ -65,6 +66,26 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
       initialDate: _selectedDepositDate ?? Jalali.now(),
       firstDate: Jalali.now().addDays(-365),
       lastDate: Jalali.now(),
+      locale: const Locale('fa', 'IR'),
+      builder: (context, child) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: ColorScheme.light(
+                primary: AppColors.primary,
+                onPrimary: Colors.white,
+                surface: Colors.white,
+                onSurface: AppColors.textPrimary,
+              ),
+              textTheme: Theme.of(context).textTheme.apply(
+                fontFamily: 'Vazir',
+              ),
+            ),
+            child: child!,
+          ),
+        );
+      },
     );
 
     if (picked != null) {
@@ -77,7 +98,8 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
   bool _hasAnyDepositField() {
     return _depositAmountController.text.isNotEmpty ||
         _selectedDepositDate != null ||
-        _selectedBank != null;
+        _selectedBank != null ||
+        _isCashPayment;
   }
 
   String? _validateDepositFields(String? value) {
@@ -92,14 +114,16 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
     if (_selectedDepositDate == null) {
       return 'تاریخ دریافت اجباری است';
     }
-    if (_selectedBank == null) {
+
+    // 🔥 اگر نقدی نیست، بانک اجباریه
+    if (!_isCashPayment && _selectedBank == null) {
       return 'انتخاب بانک اجباری است';
     }
+
     return null;
   }
 
   Future<void> _handleSave() async {
-    // بررسی اعتبار فیلدها
     final depositError = _validateDepositFields(null);
 
     if (depositError != null) {
@@ -116,19 +140,17 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
             ? null
             : ServiceModel.parsePrice(_depositAmountController.text),
         depositReceivedDate: _selectedDepositDate?.toDateTime(),
-        bankId: _selectedBank?.id,
-        bankName: _selectedBank?.bankName,
+        // 🔥 اگر نقدی باشه، بانک null میشه
+        bankId: _isCashPayment ? null : _selectedBank?.id,
+        bankName: _isCashPayment ? 'نقدی' : _selectedBank?.bankName,
         createdAt: widget.appointment.createdAt,
       );
 
-      // ذخیره نوبت
       await _appointmentRepository.addAppointment(finalAppointment);
 
       if (!mounted) return;
 
       SnackBarHelper.showSuccess(context, 'نوبت با موفقیت ثبت شد');
-
-      // بازگشت به صفحه اصلی
       Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
       if (mounted) {
@@ -150,7 +172,7 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
       body: Container(
         decoration: BoxDecoration(
           image: DecorationImage(
-            image: AssetImage('assets/images/background.png'),
+            image: const AssetImage('assets/images/background.png'),
             fit: BoxFit.cover,
             opacity: 0.1,
           ),
@@ -187,7 +209,6 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
                               color: AppColors.textSecondary,
                               fontSize: 14,
                             ),
-
                             filled: true,
                             fillColor: Colors.white,
                             border: OutlineInputBorder(
@@ -201,13 +222,19 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
                                 width: 2,
                               ),
                             ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: AppColors.error,
+                                width: 1,
+                              ),
+                            ),
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 16,
                             ),
                           ),
                         ),
-
 
                         const SizedBox(height: 16),
 
@@ -250,60 +277,96 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
 
                         const SizedBox(height: 16),
 
-                        // انتخاب بانک
+                        // 🔥 چک‌باکس دریافت نقدی
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              const Icon(Icons.arrow_drop_down, color: AppColors.primary),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<BankModel>(
-                                    value: _selectedBank,
-                                    isExpanded: true,
-
-                                    // 🔹 این خط باعث می‌شود آیکون سمت راست حذف شود
-                                    icon: const SizedBox.shrink(),
-
-                                    // 🔹 این خط باعث می‌شود منو راست‌چین شود
-                                    alignment: Alignment.centerRight,
-
-                                    hint: const Align(
-                                      alignment: Alignment.centerRight,
-                                      child: Text(
-                                        'انتخاب بانک',
-                                        textAlign: TextAlign.right,
-                                        style: TextStyle(
-                                          color: AppColors.textLight,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ),
-                                    items: _banks.map((bank) {
-                                      return DropdownMenuItem<BankModel>(
-                                        value: bank,
-                                        alignment: Alignment.centerRight,
-                                        child: Text(
-                                          '${bank.bankName}${bank.accountNumber != null ? ' - ${bank.accountNumber}' : ''}',
-                                          textAlign: TextAlign.right,
-                                          style: const TextStyle(fontSize: 14),
-                                        ),
-                                      );
-                                    }).toList(),
-                                    onChanged: (bank) {
-                                      setState(() {
-                                        _selectedBank = bank;
-                                      });
-                                    },
-                                  ),
+                              const Text(
+                                'دریافت نقدی بیعانه',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.textPrimary,
                                 ),
                               ),
+                              Checkbox(
+                                value: _isCashPayment,
+                                activeColor: AppColors.primary,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _isCashPayment = value ?? false;
+                                    if (_isCashPayment) {
+                                      _selectedBank = null; // پاک کردن بانک انتخابی
+                                    }
+                                  });
+                                },
+                              ),
                             ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // انتخاب بانک (غیرفعال اگر نقدی باشه)
+                        Opacity(
+                          opacity: _isCashPayment ? 0.5 : 1.0,
+                          child: IgnorePointer(
+                            ignoring: _isCashPayment,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: DropdownButtonHideUnderline(
+                                      child: DropdownButton<BankModel>(
+                                        value: _selectedBank,
+                                        isExpanded: true,
+                                        icon: const SizedBox.shrink(),
+                                        alignment: Alignment.centerRight,
+                                        hint: const Align(
+                                          alignment: Alignment.centerRight,
+                                          child: Text(
+                                            'انتخاب بانک',
+                                            textAlign: TextAlign.right,
+                                            style: TextStyle(
+                                              color: AppColors.textLight,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ),
+                                        items: _banks.map((bank) {
+                                          return DropdownMenuItem<BankModel>(
+                                            value: bank,
+                                            alignment: Alignment.centerRight,
+                                            child: Text(
+                                              '${bank.bankName}${bank.accountNumber != null ? ' - ${bank.accountNumber}' : ''}',
+                                              textAlign: TextAlign.right,
+                                              style: const TextStyle(fontSize: 14),
+                                            ),
+                                          );
+                                        }).toList(),
+                                        onChanged: (bank) {
+                                          setState(() {
+                                            _selectedBank = bank;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
 

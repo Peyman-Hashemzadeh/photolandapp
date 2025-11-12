@@ -83,6 +83,11 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
           _customers = customers;
           _isLoadingCustomers = false;
         });
+
+        // 🔥 اضافه شد: بعد از لود مشتریان، اگر ویرایشه، مشتری رو پیدا کن
+        if (widget.appointment != null && _selectedCustomer == null) {
+          _loadAppointmentData();
+        }
       }
     });
   }
@@ -96,6 +101,14 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
       _timeController.text = apt.requestedTime;
       _selectedDate = Jalali.fromDateTime(apt.requestedDate);
       _selectedDuration = apt.durationMinutes;
+
+      //   پیدا کردن مشتری در لیست
+      if (!widget.isNewCustomer && _customers.isNotEmpty) {
+        _selectedCustomer = _customers.firstWhere(
+              (c) => c.id == apt.customerId,
+          orElse: () => _customers.first,
+        );
+      }
     }
   }
 

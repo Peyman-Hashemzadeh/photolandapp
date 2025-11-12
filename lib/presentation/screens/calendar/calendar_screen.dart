@@ -9,6 +9,7 @@ import '../../../data/models/appointment_model.dart';
 import '../../../data/repositories/appointment_repository.dart';
 import '../appointments/appointment_menu_screen.dart';
 import '../appointments/add_appointment_screen.dart';
+import '../../widgets/appointment_card.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -27,7 +28,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     super.initState();
     _selectedDate = Jalali.now();
 
-    // اسکرول به روز جاری بعد از بیلد اولیه
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToSelectedDay();
     });
@@ -40,9 +40,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _scrollToSelectedDay() {
-    // هر روز حدود 60 پیکسل عرض داره (با فاصله)
-    final dayIndex = _selectedDate.day - 1;
-    final scrollPosition = dayIndex * 60.0 - (MediaQuery.of(context).size.width / 2) + 30;
+    // هر روز 58 پیکسل (50 عرض + 8 فاصله)
+    final daysInMonth = _selectedDate.monthLength;
+    final dayIndex = _selectedDate.day - 1; // index از 0 شروع می‌شه
+
+    // محاسبه position از سمت راست (چون reverse: true)
+    final reversedIndex = daysInMonth - 1 - dayIndex;
+    final scrollPosition = reversedIndex * 58.0 - (MediaQuery.of(context).size.width / 2) + 29;
 
     if (_daysScrollController.hasClients) {
       _daysScrollController.animateTo(
@@ -72,7 +76,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 onSurface: AppColors.textPrimary,
               ),
               textTheme: Theme.of(context).textTheme.apply(
-                fontFamily: 'Vazirmatn',
+                fontFamily: 'Vazir',
               ),
             ),
             child: child!,
@@ -165,7 +169,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _handleSettlement(AppointmentModel appointment) {
-    // TODO: صفحه تسویه (بعداً پیاده‌سازی می‌شود)
+    // TODO: صفحه تسویه
     SnackBarHelper.showInfo(context, 'صفحه تسویه به زودی...');
   }
 
@@ -333,7 +337,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: days.length,
         itemBuilder: (context, index) {
-          final day = days[index];
+          final day = days[days.length - 1 - index]; // معکوس کردن ترتیب
           final isSelected = day.day == _selectedDate.day &&
               day.month == _selectedDate.month &&
               day.year == _selectedDate.year;
@@ -437,7 +441,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           itemCount: appointments.length,
           itemBuilder: (context, index) {
             final appointment = appointments[index];
-            return _AppointmentCard(
+            return AppointmentCard(
               appointment: appointment,
               onEdit: () => _handleEditAppointment(appointment),
               onCancel: () => _handleCancelAppointment(appointment),
@@ -446,219 +450,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
           },
         );
       },
-    );
-  }
-}
-
-// ویجت کارت نوبت با expand/collapse
-class _AppointmentCard extends StatefulWidget {
-  final AppointmentModel appointment;
-  final VoidCallback onEdit;
-  final VoidCallback onCancel;
-  final VoidCallback onSettle;
-
-  const _AppointmentCard({
-    required this.appointment,
-    required this.onEdit,
-    required this.onCancel,
-    required this.onSettle,
-  });
-
-  @override
-  State<_AppointmentCard> createState() => _AppointmentCardState();
-}
-
-class _AppointmentCardState extends State<_AppointmentCard> {
-  bool _isExpanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final isCancelled = widget.appointment.status == 'cancelled';
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _isExpanded = !_isExpanded;
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: isCancelled ? Colors.red.shade50 : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // ردیف اول: ساعت و نام
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // ساعت
-                  Text(
-                    widget.appointment.timeRange,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isCancelled
-                          ? Colors.red.shade400
-                          : AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  // نام مشتری
-                  Expanded(
-                    child: Text(
-                      widget.appointment.customerName,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isCancelled
-                            ? Colors.red.shade600
-                            : AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              // ردیف دوم: سن کودک و مدل عکاسی
-              if (widget.appointment.childAge != null ||
-                  widget.appointment.photographyModel != null) ...[
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // مدل عکاسی
-                    if (widget.appointment.photographyModel != null)
-                      Expanded(
-                        child: Text(
-                          widget.appointment.photographyModel!,
-                          textAlign: TextAlign.left,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isCancelled
-                                ? Colors.red.shade400
-                                : AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                    // سن کودک
-                    if (widget.appointment.childAge != null)
-                      Text(
-                        'سن کودک: ${widget.appointment.childAge}',
-                        textAlign: TextAlign.right,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isCancelled
-                              ? Colors.red.shade400
-                              : AppColors.textSecondary,
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-
-              // توضیحات
-              if (widget.appointment.notes != null &&
-                  widget.appointment.notes!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: isCancelled
-                        ? Colors.red.shade100
-                        : Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    widget.appointment.notes!,
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isCancelled
-                          ? Colors.red.shade600
-                          : AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
-
-              // دکمه‌های عملیاتی (فقط برای نوبت‌های غیر لغو‌شده)
-              if (!isCancelled)
-                AnimatedCrossFade(
-                  firstChild: const SizedBox(height: 0),
-                  secondChild: Column(
-                    children: [
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          // دکمه لغو
-                          TextButton.icon(
-                            onPressed: widget.onCancel,
-                            icon: const Icon(Icons.block, size: 16),
-                            label: const Text('لغو'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.error,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // دکمه تسویه
-                          TextButton.icon(
-                            onPressed: widget.onSettle,
-                            icon: const Icon(Icons.attach_money, size: 16),
-                            label: const Text('تسویه'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.success,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // دکمه ویرایش
-                          TextButton.icon(
-                            onPressed: widget.onEdit,
-                            icon: const Icon(Icons.edit, size: 16),
-                            label: const Text('ویرایش'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.primary,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  crossFadeState: _isExpanded
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-                  duration: const Duration(milliseconds: 250),
-                ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
