@@ -139,17 +139,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       ),
 
-                      const SizedBox(height: 40),
+                      //const SizedBox(height: 40),
 
-                      // عنوان
-                      const Text(
-                        '!خوش برگشتید',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
+
 
                       const SizedBox(height: 12),
 

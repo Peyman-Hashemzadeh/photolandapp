@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:persian_datetime_picker/persian_datetime_picker.dart';
+import 'package:shamsi_date/shamsi_date.dart';
+import '../../../core/utils/date_helper.dart';
 import '../../../core/constants/colors.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/utils/snackbar_helper.dart';
@@ -102,21 +104,38 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
       context: context,
       initialDate: _selectedDate ?? Jalali.now(),
       firstDate: Jalali.now(),
-      lastDate: Jalali.now().addYears(1),
-      // تنظیمات فارسی
-      //initialEntryMode: PDatePickerEntryMode.calendarOnly,
+      lastDate: Jalali.now().addYears(3),
+      locale: const Locale('fa', 'IR'),
+      helpText: null,
       builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppColors.textPrimary,
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: ColorScheme.light(
+                primary: AppColors.primary,
+                onPrimary: Colors.white,
+                surface: Colors.white,
+                onSurface: AppColors.textPrimary,
+              ),
+              // ← بهبود: textTheme کامل برای grid (اعداد روزها bodySmall/labelSmall هستن)
+              textTheme: Theme.of(context).textTheme.copyWith(
+                bodySmall: const TextStyle(
+                  fontFamily: 'Vazirmatn',  // فونت جدید با Persian digits
+                  fontSize: 16,  // سایز اعداد روزها
+                  fontWeight: FontWeight.w500,
+                ),
+                labelSmall: const TextStyle(
+                  fontFamily: 'Vazirmatn',
+                  fontSize: 12,  // نام ماه/روز
+                ),
+                bodyMedium: const TextStyle(fontFamily: 'Vazirmatn'),  // fallback
+              ),
+              // اختیاری: برای header و عنوان ماه
+              appBarTheme: const AppBarTheme(
+                titleTextStyle: TextStyle(fontFamily: 'Vazirmatn', fontSize: 18),
+              ),
             ),
-          ),
-          child: Directionality(
-            textDirection: TextDirection.rtl,
             child: child!,
           ),
         );
@@ -129,6 +148,7 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
       });
     }
   }
+
 
   Future<void> _selectTime() async {
     final picked = await showTimePicker(
@@ -505,12 +525,14 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
                                         children: [
                                           const Icon(Icons.arrow_drop_down, color: AppColors.primary),
                                           const Spacer(),
+                                          // در Text داخل InkWell (بخش builder FormField)
                                           Text(
-                                            _selectedDate != null ? _selectedDate!.formatCompactDate() : 'تاریخ درخواستی',
+                                            DateHelper.formatPersianDate(_selectedDate),  // ← جدید: استفاده از helper (اعداد فارسی می‌شن)
                                             textAlign: TextAlign.right,
                                             style: TextStyle(
                                               fontSize: 14,
                                               color: _selectedDate != null ? AppColors.textPrimary : AppColors.textLight,
+                                              fontFamily: 'Vazirmatn',  // force فونت برای smoothness
                                             ),
                                           ),
                                         ],

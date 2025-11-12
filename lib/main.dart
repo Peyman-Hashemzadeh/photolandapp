@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:persian_datetime_picker/persian_datetime_picker.dart';
 import 'presentation/screens/splash/splash_screen.dart';
 import 'core/constants/colors.dart';
 
@@ -30,6 +32,19 @@ class MyApp extends StatelessWidget {
 
       // تنظیمات زبان فارسی
       locale: const Locale('fa', 'IR'),
+      supportedLocales: const [
+        Locale('fa', 'IR'),  // فارسی
+        Locale('en', 'US'),  // انگلیسی fallback
+      ],
+      localizationsDelegates: const [
+
+        PersianMaterialLocalizations.delegate,
+        PersianCupertinoLocalizations.delegate,
+
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
 
       // تم برنامه
       theme: ThemeData(
@@ -41,8 +56,10 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
 
         // تنظیمات فونت فارسی
-        fontFamily: 'Vazir', // بعداً فونت اضافه میکنیم
-
+        fontFamily: 'Vazirmatn', // بعداً فونت اضافه میکنیم
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(fontFamily: 'Vazirmatn'),
+        ),
         // تنظیمات AppBar
         appBarTheme: const AppBarTheme(
           backgroundColor: AppColors.primary,

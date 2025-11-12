@@ -8,6 +8,7 @@ import '../appointments/appointment_menu_screen.dart';
 import '../../../services/firebase_service.dart';
 import '../base_data/base_data_menu_screen.dart';
 import '../auth/login_screen.dart';
+import '../calendar/calendar_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -116,8 +117,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _navigateToCalendar() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('صفحه تقویم به زودی...')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CalendarScreen(),
+      ),
     );
   }
 

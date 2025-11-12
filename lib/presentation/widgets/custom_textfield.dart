@@ -29,7 +29,7 @@ class CustomTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Directionality(
-      textDirection: TextDirection.rtl, // 👈 فرم راست‌به‌چپ
+      textDirection: TextDirection.rtl,
       child: TextFormField(
         controller: controller,
         obscureText: obscureText,
@@ -57,13 +57,19 @@ class CustomTextField extends StatelessWidget {
 
           filled: true,
           fillColor: Colors.white,  // ← key: از grey[100] به white تغییر دادم
-          border: OutlineInputBorder(
+          border: OutlineInputBorder(  // ← تغییر: border عادی با رنگ خاکستری (non-const اگر لازم)
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
+            borderSide: BorderSide(  // ← فیکس: const حذف شد
+              color: Colors.grey,
+              width: 1,
+            ),
           ),
-          enabledBorder: OutlineInputBorder(  // ← enabledBorder هم white نگه می‌داره
+          enabledBorder: OutlineInputBorder(  // ← تغییر: enabledBorder با رنگ خاکستری ملایم (non-const)
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
+            borderSide: BorderSide(  // ← فیکس: const حذف شد + ! برای non-null
+              color: Colors.grey[100]!,
+              width: 1,
+            ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
