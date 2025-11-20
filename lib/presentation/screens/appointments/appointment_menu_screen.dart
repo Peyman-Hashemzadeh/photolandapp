@@ -4,6 +4,7 @@ import '../../../core/constants/colors.dart';
 import '../../../data/repositories/appointment_repository.dart';
 import '../../widgets/dashboard_card.dart';
 import 'add_appointment_screen.dart';
+import 'received_appointments_screen.dart';
 
 class AppointmentMenuScreen extends StatefulWidget {
   const AppointmentMenuScreen({super.key});
@@ -96,14 +97,10 @@ class _AppointmentMenuScreenState extends State<AppointmentMenuScreen> {
                         backgroundColor: const Color(0xFF7DD8B8),
                         badgeCount: receivedCount,
                         onTap: () {
-                          // TODO: صفحه نوبت‌های دریافتی
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text(
-                                'صفحه نوبت‌های دریافتی به زودی...',
-                                textAlign: TextAlign.right,
-                                textDirection: TextDirection.rtl,
-                              ),
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ReceivedAppointmentsScreen(),
                             ),
                           );
                         },

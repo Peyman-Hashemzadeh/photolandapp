@@ -10,6 +10,8 @@ import '../../../data/repositories/appointment_repository.dart';
 import '../appointments/appointment_menu_screen.dart';
 import '../appointments/add_appointment_screen.dart';
 import '../../widgets/appointment_card.dart';
+import '../invoices/invoice_screen.dart';
+import '../invoices/invoice_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -169,8 +171,60 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _handleSettlement(AppointmentModel appointment) {
-    // TODO: صفحه تسویه
-    SnackBarHelper.showInfo(context, 'صفحه تسویه به زودی...');
+    if (appointment.status == 'cancelled') {
+      // رزرو مجدد
+      _handleReactivate(appointment);
+    } else {
+      // رفتن به صورت حساب
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => InvoiceScreen(appointment: appointment),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleReactivate(AppointmentModel appointment) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('رزرو مجدد نوبت'),
+          content: const Text('آیا از فعال‌سازی مجدد این نوبت اطمینان دارید؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'بله، فعال کن',
+                style: TextStyle(color: AppColors.success),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('خیر'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await _repository.updateAppointmentStatus(appointment.id, 'confirmed');
+        if (mounted) {
+          SnackBarHelper.showSuccess(context, 'نوبت با موفقیت فعال شد');
+        }
+      } catch (e) {
+        if (mounted) {
+          SnackBarHelper.showError(
+            context,
+            e.toString().replaceAll('Exception: ', ''),
+          );
+        }
+      }
+    }
   }
 
   @override

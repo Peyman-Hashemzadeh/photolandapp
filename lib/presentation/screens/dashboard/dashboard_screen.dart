@@ -9,6 +9,10 @@ import '../../../services/firebase_service.dart';
 import '../base_data/base_data_menu_screen.dart';
 import '../auth/login_screen.dart';
 import '../calendar/calendar_screen.dart';
+import '../documents/document_menu_screen.dart';
+import '../reports/financial_report_screen.dart';
+import '../form_sharing/share_form_screen.dart';
+import '../../../data/repositories/appointment_repository.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -55,9 +59,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadBadgeCount() async {
-    // فعلاً عدد تست - بعداً از Firestore
-    setState(() {
-      receivedAppointmentsCount = 3;
+    final AppointmentRepository repository = AppointmentRepository();
+
+    // گوش دادن به تغییرات realtime
+    repository.getReceivedAppointments().listen((appointments) {
+      if (mounted) {
+        setState(() {
+          receivedAppointmentsCount = appointments.length;
+        });
+      }
     });
   }
 
@@ -126,20 +136,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _navigateToInvoice() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('صفحه ثبت فاکتور به زودی...')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const DocumentMenuScreen(),
+      ),
     );
   }
 
   void _navigateToInvoicesList() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('صفحه صورت حساب‌ها به زودی...')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const FinancialReportScreen(),
+      ),
     );
   }
 
   void _navigateToFormSharing() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('صفحه ارسال فرم به زودی...')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ShareFormScreen(),
+      ),
     );
   }
 
@@ -206,9 +225,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         onTap: _navigateToInvoicesList,
                       ),
 
-                      // ثبت فاکتور
+                      // صدور سند
                       DashboardCard(
-                        title: 'ثبت فاکتور',
+                        title: 'صدور سند',
                         svgAsset: 'assets/images/icons/file-invoice-dollar.svg',
                         backgroundColor: const Color(0xFFFF9F6E),
                         onTap: _navigateToInvoice,

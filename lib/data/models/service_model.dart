@@ -20,11 +20,11 @@ class ServiceModel {
   // قیمت با فرمت (جداکننده سه رقمی)
   String? get formattedPrice {
     if (price == null) return null;
-    return _formatNumber(price!);
+    return formatNumber(price!);
   }
 
   // تابع فرمت‌کننده عدد
-  static String _formatNumber(int number) {
+  static String formatNumber(int number) {
     final str = number.toString();
     final buffer = StringBuffer();
 

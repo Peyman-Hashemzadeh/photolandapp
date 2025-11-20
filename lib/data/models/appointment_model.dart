@@ -138,6 +138,7 @@ class AppointmentModel {
     DateTime? updatedAt,
   }) {
     return AppointmentModel(
+
       id: id ?? this.id,
       customerId: customerId ?? this.customerId,
       customerName: customerName ?? this.customerName,

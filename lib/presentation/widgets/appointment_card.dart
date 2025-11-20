@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/colors.dart';
+import '../../../core/utils/date_helper.dart';
 import '../../../data/models/appointment_model.dart';
+import '../../../data/models/service_model.dart';
+import '../../../data/repositories/invoice_repository.dart';
+import '../../../data/repositories/payment_repository.dart';
 
 class AppointmentCard extends StatefulWidget {
   final AppointmentModel appointment;
@@ -21,12 +25,103 @@ class AppointmentCard extends StatefulWidget {
 }
 
 class _AppointmentCardState extends State<AppointmentCard> {
+  final InvoiceRepository _invoiceRepository = InvoiceRepository();
+  final PaymentRepository _paymentRepository = PaymentRepository();
+
   bool _isExpanded = false;
+  bool _isSettled = false;
+  bool _hasInvoice = false;
+  int _totalInvoice = 0;
+  int _totalPayments = 0;
+  DateTime? _latestPaymentDate;
+  int? _depositAmount;
+  DateTime? _depositDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSettlementStatus();
+  }
+
+  Future<void> _checkSettlementStatus() async {
+    try {
+      // بررسی فاکتور
+      final invoice = await _invoiceRepository.getInvoiceByAppointment(widget.appointment.id);
+
+      if (invoice != null) {
+        final invoiceTotal = await _invoiceRepository.calculateInvoiceTotal(invoice.id);
+        final paymentsTotal = await _paymentRepository.calculateTotalPayments(widget.appointment.id);
+
+        if (mounted) {
+          setState(() {
+            _hasInvoice = invoiceTotal > 0;
+            _totalInvoice = invoiceTotal;
+            _totalPayments = paymentsTotal;
+            _isSettled = _hasInvoice && paymentsTotal >= invoiceTotal;
+          });
+        }
+      }
+
+      // بررسی بیعانه
+      if (widget.appointment.hasDeposit && !_hasInvoice) {
+        setState(() {
+          _depositAmount = widget.appointment.depositAmount;
+          _depositDate = widget.appointment.depositReceivedDate;
+        });
+      }
+
+      // یافتن آخرین تاریخ پرداخت
+      final payments = await _paymentRepository.getPaymentsByAppointment(widget.appointment.id).first;
+      if (payments.isNotEmpty) {
+        final sortedPayments = payments..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+        setState(() {
+          _latestPaymentDate = sortedPayments.first.paymentDate;
+        });
+      }
+    } catch (e) {
+      // خطا را نادیده بگیر
+    }
+  }
+
+  void _showStatusDialog() {
+    String message;
+
+    if (_isSettled) {
+      // آیکون چک
+      message = 'در تاریخ ${DateHelper.dateTimeToShamsi(_latestPaymentDate!)} '
+          'مجموعاً ${ServiceModel.formatNumber(_totalPayments)} ریال دریافت شد '
+          'و فاکتور تسویه شده است.';
+    } else if (_depositAmount != null) {
+      // آیکون پول
+      message = 'در تاریخ ${DateHelper.dateTimeToShamsi(_depositDate!)} '
+          'مبلغ ${ServiceModel.formatNumber(_depositAmount!)} ریال دریافت شد '
+          'ولی هنوز تسویه نشده است.';
+    } else {
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: Text(_isSettled ? 'تسویه شده' : 'بیعانه دریافتی'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('متوجه شدم'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final isCancelled = widget.appointment.status == 'cancelled';
-    final hasDeposit = widget.appointment.hasDeposit;
+    final showIcon = _isSettled || (_depositAmount != null && !_hasInvoice);
 
     return GestureDetector(
       onTap: () {
@@ -53,10 +148,10 @@ class _AppointmentCardState extends State<AppointmentCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // ردیف اول: ساعت، نام (وسط‌چین)، آیکون بیعانه
+              // ردیف اول: ساعت، نام (وسط‌چین)، آیکون
               Row(
                 children: [
-                  // ساعت (سمت چپ) - با textDirection برای درست نمایش دادن
+                  // ساعت (سمت چپ)
                   Directionality(
                     textDirection: TextDirection.ltr,
                     child: Text(
@@ -86,16 +181,19 @@ class _AppointmentCardState extends State<AppointmentCard> {
                     ),
                   ),
 
-                  // آیکون بیعانه (سمت راست)
+                  // آیکون (سمت راست)
                   SizedBox(
                     width: 24,
-                    child: hasDeposit
-                        ? Icon(
-                      Icons.attach_money,
-                      size: 20,
-                      color: isCancelled
-                          ? Colors.red.shade400
-                          : AppColors.success,
+                    child: showIcon
+                        ? GestureDetector(
+                      onTap: _showStatusDialog,
+                      child: Icon(
+                        _isSettled ? Icons.check_circle : Icons.attach_money,
+                        size: 20,
+                        color: isCancelled
+                            ? Colors.red.shade400
+                            : (_isSettled ? AppColors.success : AppColors.success),
+                      ),
                     )
                         : const SizedBox(),
                   ),
@@ -175,38 +273,40 @@ class _AppointmentCardState extends State<AppointmentCard> {
                 ),
               ],
 
-              // دکمه‌های عملیاتی (فقط برای نوبت‌های غیر لغو‌شده)
-              if (!isCancelled)
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  alignment: Alignment.centerRight, // 🔥 انیمیشن از راست به چپ
-                  child: _isExpanded
-                      ? Column(
-                    children: [
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          // دکمه ویرایش
-                          TextButton.icon(
-                            onPressed: widget.onEdit,
-                            icon: const Icon(Icons.edit, size: 16),
-                            label: const Text('ویرایش'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.primary,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
+              // دکمه‌های عملیاتی
+              AnimatedSize(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                alignment: Alignment.centerRight,
+                child: _isExpanded
+                    ? Column(
+                  children: [
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        // دکمه ویرایش (همیشه نمایش)
+                        TextButton.icon(
+                          onPressed: widget.onEdit,
+                          icon: const Icon(Icons.edit, size: 16),
+                          label: const Text('ویرایش'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          // دکمه تسویه
+                        ),
+                        const SizedBox(width: 8),
+
+                        // اگر لغو نشده: صورت حساب + لغو
+                        if (!isCancelled) ...[
+                          // دکمه صورت حساب
                           TextButton.icon(
                             onPressed: widget.onSettle,
-                            icon: const Icon(Icons.attach_money, size: 16),
-                            label: const Text('تسویه'),
+                            icon: const Icon(Icons.receipt_long, size: 16),
+                            label: const Text('صورت حساب'),
                             style: TextButton.styleFrom(
                               foregroundColor: AppColors.success,
                               padding: const EdgeInsets.symmetric(
@@ -230,11 +330,27 @@ class _AppointmentCardState extends State<AppointmentCard> {
                             ),
                           ),
                         ],
-                      ),
-                    ],
-                  )
-                      : const SizedBox(height: 0),
-                ),
+
+                        // اگر لغو شده: رزرو مجدد
+                        if (isCancelled)
+                          TextButton.icon(
+                            onPressed: widget.onSettle,
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('رزرو مجدد'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.success,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                )
+                    : const SizedBox(height: 0),
+              ),
             ],
           ),
         ),

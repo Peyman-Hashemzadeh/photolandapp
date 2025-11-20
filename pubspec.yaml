@@ -26,6 +26,8 @@ dependencies:
   # State Management
   provider: ^6.1.1
 
+  path_provider: ^2.1.4
+
   # تقویم شمسی
   shamsi_date: ^1.0.1
   persian_datetime_picker: ^3.1.1
@@ -39,6 +41,12 @@ dependencies:
   intl: ^0.20.2
   flutter_svg: ^2.2.1
   font_awesome_flutter: ^10.12.0
+
+  # برای QR Code
+  qr_flutter: ^4.1.0
+
+  # برای هش SHA-256
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:
