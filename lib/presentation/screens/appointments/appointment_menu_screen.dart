@@ -20,16 +20,18 @@ class _AppointmentMenuScreenState extends State<AppointmentMenuScreen> {
   @override
   void initState() {
     super.initState();
-    _loadReceivedCount();
+    _loadReceivedCount(); // 🔥 تغییر به Realtime
   }
 
-  Future<void> _loadReceivedCount() async {
-    final count = await _repository.getReceivedAppointmentsCount();
-    if (mounted) {
-      setState(() {
-        receivedCount = count;
-      });
-    }
+  // 🔥 تغییر به Realtime با استفاده از Stream
+  void _loadReceivedCount() {
+    _repository.getReceivedAppointments().listen((appointments) {
+      if (mounted) {
+        setState(() {
+          receivedCount = appointments.length;
+        });
+      }
+    });
   }
 
   @override
@@ -90,12 +92,12 @@ class _AppointmentMenuScreenState extends State<AppointmentMenuScreen> {
 
                       const SizedBox(height: 16),
 
-                      // نوبت‌های دریافتی
+                      // نوبت‌های دریافتی با Badge Realtime
                       DashboardCard(
                         title: 'نوبت های دریافتی',
                         svgAsset: 'assets/images/icons/globe.svg',
                         backgroundColor: const Color(0xFF7DD8B8),
-                        badgeCount: receivedCount,
+                        badgeCount: receivedCount, // 🔥 حالا Realtime هست
                         onTap: () {
                           Navigator.push(
                             context,
@@ -122,13 +124,13 @@ class _AppointmentMenuScreenState extends State<AppointmentMenuScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // دکمه برگشت
-          IconButton(
-            icon: const Icon(
-              Icons.arrow_back,
-              color: AppColors.textPrimary,
+          // آیکون پروفایل (خالی برای تراز)
+          GestureDetector(
+            onTap: () {},
+            child: Container(
+              width: 44,
+              height: 44,
             ),
-            onPressed: () => Navigator.pop(context),
           ),
 
           // عنوان
@@ -141,24 +143,13 @@ class _AppointmentMenuScreenState extends State<AppointmentMenuScreen> {
             ),
           ),
 
-          // آیکون پروفایل
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: FaIcon(
-                  FontAwesomeIcons.user,
-                  color: Colors.grey,
-                  size: 20,
-                ),
-              ),
+          // دکمه برگشت
+          IconButton(
+            icon: const Icon(
+              Icons.arrow_forward,
+              color: AppColors.textPrimary,
             ),
+            onPressed: () => Navigator.pop(context),
           ),
         ],
       ),

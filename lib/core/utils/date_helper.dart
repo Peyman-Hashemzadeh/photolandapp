@@ -17,11 +17,24 @@ class DateHelper {
     if (date == null) return 'تاریخ درخواستی';
 
     final weekDay = date.formatter.wN;  // نام روز (یکشنبه)
-    final monthName = date.formatter.mN;  // نام ماه (آبان)
     final day = toPersianDigits(date.day.toString());
+    final monthName = date.formatter.mN;  // نام ماه (آبان)
     final year = toPersianDigits(date.year.toString());
 
-    return '$weekDay، $monthName $day $year';
+    return '$weekDay، $day $monthName $year';
+  }
+
+  static String getPersianDayName(DateTime date) {
+    const days = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه'];
+    return days[date.weekday % 7];
+  }
+
+  static String getPersianMonthName(int month) {
+    const months = [
+      'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+      'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'
+    ];
+    return months[month - 1];
   }
 
   /// فرمت فقط نام ماه و سال: "آبان ۱۴۰۴"

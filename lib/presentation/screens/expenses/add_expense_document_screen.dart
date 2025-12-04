@@ -117,17 +117,17 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
     }
 
     if (_selectedExpense == null) {
-      SnackBarHelper.showError(context, 'لطفاً هزینه را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا هزینه را انتخاب کنید');
       return;
     }
 
     if (_selectedDate == null) {
-      SnackBarHelper.showError(context, 'لطفاً تاریخ سند را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا تاریخ سند را انتخاب کنید');
       return;
     }
 
     if (!_isCashPayment && _selectedBank == null) {
-      SnackBarHelper.showError(context, 'لطفاً بانک را انتخاب کنید یا پرداخت نقدی را فعال کنید');
+      SnackBarHelper.showError(context, 'لطفا بانک را انتخاب کنید یا پرداخت نقدی را فعال کنید');
       return;
     }
 
@@ -289,7 +289,7 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
                                 autovalidateMode: AutovalidateMode.onUserInteraction,
                                 validator: (expense) {
                                   if (expense == null) {
-                                    return 'لطفاً هزینه را انتخاب کنید';
+                                    return 'لطفا هزینه را انتخاب کنید';
                                   }
                                   return null;
                                 },
@@ -353,7 +353,7 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
                                 autovalidateMode: AutovalidateMode.onUserInteraction,
                                 validator: (date) {
                                   if (date == null) {
-                                    return 'لطفاً تاریخ سند را انتخاب کنید';
+                                    return 'لطفا تاریخ سند را انتخاب کنید';
                                   }
                                   return null;
                                 },

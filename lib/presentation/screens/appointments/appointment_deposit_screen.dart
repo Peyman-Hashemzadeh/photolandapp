@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:persian_datetime_picker/persian_datetime_picker.dart';
 import '../../../core/constants/colors.dart';
 import '../../../core/utils/price_input_formatter.dart';
+import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../data/models/appointment_model.dart';
 import '../../../data/models/bank_model.dart';
@@ -23,6 +25,61 @@ class AppointmentDepositScreen extends StatefulWidget {
   State<AppointmentDepositScreen> createState() => _AppointmentDepositScreenState();
 }
 
+class PersianPriceInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    // جلوگیری از حذف یکجا
+    if (newValue.text.isEmpty) {
+      return newValue;
+    }
+
+    // حذف جداکننده و تبدیل فارسی → انگلیسی برای پردازش
+    String clean = newValue.text
+        .replaceAll('٬', '') // کاما فارسی
+        .replaceAll(',', '') // کاما انگلیسی
+        .replaceAllMapped(RegExp('[۰-۹]'), (Match m) {
+      return (m.group(0)!.codeUnitAt(0) - 1776).toString();
+    });
+
+    // اگر خالی شد
+    if (clean.isEmpty) clean = "0";
+
+    // تبدیل به int
+    final number = int.tryParse(clean) ?? 0;
+
+    // جداکننده سه‌رقمی انگلیسی
+    String formatted = _formatWithComma(number.toString());
+
+    // تبدیل اعداد انگلیسی به فارسی
+    formatted = DateHelper.toPersianDigits(formatted);
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
+  /// ۳ رقم ۳ رقم جدا می‌کند
+  String _formatWithComma(String value) {
+    final buffer = StringBuffer();
+    int digits = 0;
+
+    for (int i = value.length - 1; i >= 0; i--) {
+      buffer.write(value[i]);
+      digits++;
+      if (digits == 3 && i != 0) {
+        buffer.write(',');
+        digits = 0;
+      }
+    }
+
+    return buffer.toString().split('').reversed.join('');
+  }
+}
+
 class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
   final _formKey = GlobalKey<FormState>();
   final AppointmentRepository _appointmentRepository = AppointmentRepository();
@@ -41,6 +98,7 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
   void initState() {
     super.initState();
     _loadBanks();
+    _loadExistingDeposit(); // 🔥 بارگذاری بیعانه موجود (اگر ویرایشه)
   }
 
   @override
@@ -58,6 +116,26 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
         });
       }
     });
+  }
+
+  // 🔥 بارگذاری بیعانه موجود (برای حالت ویرایش)
+  void _loadExistingDeposit() {
+    if (widget.appointment.depositAmount != null) {
+      _depositAmountController.text = ServiceModel.formatNumber(widget.appointment.depositAmount!);
+    }
+
+    if (widget.appointment.depositReceivedDate != null) {
+      _selectedDepositDate = Jalali.fromDateTime(widget.appointment.depositReceivedDate!);
+    }
+
+    if (widget.appointment.bankName == 'نقدی') {
+      _isCashPayment = true;
+    } else if (widget.appointment.bankId != null && _banks.isNotEmpty) {
+      _selectedBank = _banks.firstWhere(
+            (b) => b.id == widget.appointment.bankId,
+        orElse: () => _banks.first,
+      );
+    }
   }
 
   Future<void> _selectDepositDate() async {
@@ -146,11 +224,22 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
         createdAt: widget.appointment.createdAt,
       );
 
-      await _appointmentRepository.addAppointment(finalAppointment);
+      // 🔥 اصلاح شده: بررسی ویرایش یا ایجاد جدید
+      if (widget.appointment.id.isNotEmpty) {
+        // حالت ویرایش - آپدیت کن
+        await _appointmentRepository.updateAppointment(finalAppointment);
 
-      if (!mounted) return;
+        if (!mounted) return;
+        SnackBarHelper.showSuccess(context, 'نوبت با موفقیت ویرایش شد');
+      } else {
+        // حالت جدید - اضافه کن
+        await _appointmentRepository.addAppointment(finalAppointment);
 
-      SnackBarHelper.showSuccess(context, 'نوبت با موفقیت ثبت شد');
+        if (!mounted) return;
+        SnackBarHelper.showSuccess(context, 'نوبت با موفقیت ثبت شد');
+      }
+
+      // برگشت به صفحه اول
       Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
       if (mounted) {
@@ -196,42 +285,23 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
                           textAlign: TextAlign.right,
                           keyboardType: TextInputType.number,
                           inputFormatters: [
-                            PriceInputFormatter(),
+                            PersianPriceInputFormatter(), // 👈 فرمت جدید
                           ],
                           decoration: InputDecoration(
                             hintText: 'مبلغ بیعانه',
-                            hintStyle: const TextStyle(
-                              color: AppColors.textLight,
-                              fontSize: 14,
-                            ),
-                            prefixText: 'ریال',
-                            prefixStyle: const TextStyle(
+
+                            // نمایش "ریال" سمت چپ فیلد
+                            suffixText: 'ریال',
+                            suffixStyle: const TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 14,
                             ),
+
                             filled: true,
                             fillColor: Colors.white,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: AppColors.primary,
-                                width: 2,
-                              ),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: AppColors.error,
-                                width: 1,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 16,
                             ),
                           ),
                         ),
@@ -252,15 +322,12 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
                             ),
                             child: Row(
                               children: [
-                                const Icon(
-                                  Icons.arrow_drop_down,
-                                  color: AppColors.primary,
-                                ),
-                                const Spacer(),
                                 Text(
                                   _selectedDepositDate != null
-                                      ? _selectedDepositDate!.formatCompactDate()
-                                      : 'تاریخ واریز',
+                                      ? DateHelper.toPersianDigits(
+                                    _selectedDepositDate!.formatCompactDate(),
+                                  )
+                                      : 'تاریخ دریافت',
                                   textAlign: TextAlign.right,
                                   style: TextStyle(
                                     fontSize: 14,
@@ -269,44 +336,13 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
                                         : AppColors.textLight,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
+                                const Spacer(),
+                                const Icon(
+                                  Icons.calendar_today,
+                                  color: AppColors.primary,
+                                ),
                               ],
                             ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // 🔥 چک‌باکس دریافت نقدی
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              const Text(
-                                'دریافت نقدی بیعانه',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              Checkbox(
-                                value: _isCashPayment,
-                                activeColor: AppColors.primary,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _isCashPayment = value ?? false;
-                                    if (_isCashPayment) {
-                                      _selectedBank = null; // پاک کردن بانک انتخابی
-                                    }
-                                  });
-                                },
-                              ),
-                            ],
                           ),
                         ),
 
@@ -325,8 +361,6 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.arrow_drop_down, color: AppColors.primary),
-                                  const SizedBox(width: 8),
                                   Expanded(
                                     child: DropdownButtonHideUnderline(
                                       child: DropdownButton<BankModel>(
@@ -364,9 +398,44 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
                                       ),
                                     ),
                                   ),
+                                  const Icon(Icons.arrow_drop_down, color: AppColors.primary),
                                 ],
                               ),
                             ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // 🔥 چک‌باکس دریافت نقدی
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              Checkbox(
+                                value: _isCashPayment,
+                                activeColor: AppColors.primary,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _isCashPayment = value ?? false;
+                                    if (_isCashPayment) {
+                                      _selectedBank = null; // پاک کردن بانک انتخابی
+                                    }
+                                  });
+                                },
+                              ),
+                              const Text(
+                                'بیعانه را به صورت نقدی دریافت کردم.',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
 
@@ -374,7 +443,7 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
 
                         // دکمه ذخیره
                         CustomButton(
-                          text: 'ذخیره نوبت',
+                          text: widget.appointment.id.isNotEmpty ? 'ویرایش نوبت' : 'ذخیره نوبت',
                           onPressed: _handleSave,
                           isLoading: _isLoading,
                           useGradient: true,
@@ -397,9 +466,12 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-            onPressed: () => Navigator.pop(context),
+          GestureDetector(
+            onTap: () {},
+            child: Container(
+              width: 44,
+              height: 44,
+            ),
           ),
           const Text(
             'دریافت بیعانه',
@@ -409,23 +481,9 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
               color: AppColors.textPrimary,
             ),
           ),
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: FaIcon(
-                  FontAwesomeIcons.user,
-                  color: Colors.grey,
-                  size: 20,
-                ),
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.arrow_forward, color: AppColors.textPrimary),
+            onPressed: () => Navigator.pop(context),
           ),
         ],
       ),

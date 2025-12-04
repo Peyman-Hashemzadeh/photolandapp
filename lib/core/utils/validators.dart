@@ -2,7 +2,7 @@ class Validators {
   // اعتبارسنجی نام و نام خانوادگی
   static String? validateFullName(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'لطفاً نام و نام خانوادگی را وارد کنید';
+      return 'لطفا نام و نام خانوادگی را وارد کنید!';
     }
     if (value.trim().length > 20) {
       return 'نام و نام خانوادگی نباید بیشتر از ۲۰ کاراکتر باشد';
@@ -10,10 +10,28 @@ class Validators {
     return null;
   }
 
+  // اضافه کردن به کلاس Validators
+  static String? validateEmail(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null; // اختیاری است
+    }
+
+    // Regex برای فرمت ایمیل
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
+
+    if (!emailRegex.hasMatch(value.trim())) {
+      return 'فرمت ایمیل صحیح نیست';
+    }
+
+    return null;
+  }
+
   // اعتبارسنجی شماره همراه
   static String? validateMobileNumber(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'لطفاً شماره همراه را وارد کنید';
+      return 'لطفا شماره همراه را وارد کنید!';
     }
 
     // حذف فاصله‌ها
@@ -40,7 +58,7 @@ class Validators {
   // اعتبارسنجی کد آتلیه
   static String? validateStudioCode(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'لطفاً کد آتلیه را وارد کنید';
+      return 'لطفا کد آتلیه را وارد کنید';
     }
 
     // حذف فاصله‌ها
@@ -62,7 +80,7 @@ class Validators {
   // اعتبارسنجی رمز عبور
   static String? validatePassword(String? value) {
     if (value == null || value.isEmpty) {
-      return 'لطفاً رمز عبور را وارد کنید';
+      return 'لطفا رمز عبور را وارد کنید';
     }
 
     if (value.length < 6) {
@@ -75,7 +93,7 @@ class Validators {
   // اعتبارسنجی تکرار رمز عبور
   static String? validateConfirmPassword(String? value, String password) {
     if (value == null || value.isEmpty) {
-      return 'لطفاً تکرار رمز عبور را وارد کنید';
+      return 'لطفا تکرار رمز عبور را وارد کنید';
     }
 
     if (value != password) {

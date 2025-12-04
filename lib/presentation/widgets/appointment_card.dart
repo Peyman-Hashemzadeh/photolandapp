@@ -153,9 +153,9 @@ class _AppointmentCardState extends State<AppointmentCard> {
                 children: [
                   // ساعت (سمت چپ)
                   Directionality(
-                    textDirection: TextDirection.ltr,
+                    textDirection: TextDirection.ltr, // LTR رو نگه دار، چون ساعت از چپ به راست خونده می‌شه
                     child: Text(
-                      widget.appointment.timeRange,
+                      DateHelper.toPersianDigits(widget.appointment.timeRange), // ← تبدیل اعداد به فارسی
                       style: TextStyle(
                         fontSize: 14,
                         color: isCancelled
@@ -216,31 +216,53 @@ class _AppointmentCardState extends State<AppointmentCard> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // مدل عکاسی (سمت چپ)
+                      // مدل عکاسی
                       if (widget.appointment.photographyModel != null)
                         Expanded(
-                          child: Text(
-                            widget.appointment.photographyModel!,
-                            textAlign: TextAlign.left,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isCancelled
-                                  ? Colors.red.shade400
-                                  : AppColors.textSecondary,
-                            ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.camera_alt_outlined,
+                                size: 16,
+                                color: AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  widget.appointment.photographyModel!,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      // سن کودک (سمت راست)
+                        )
+                      else
+                        const SizedBox.shrink(),
+
+                      const SizedBox(width: 12),
+
+                      // سن کودک
                       if (widget.appointment.childAge != null)
-                        Text(
-                          'سن کودک: ${widget.appointment.childAge}',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isCancelled
-                                ? Colors.red.shade400
-                                : AppColors.textSecondary,
-                          ),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.child_care_outlined,
+                              size: 16,
+                              color: AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              widget.appointment.childAge!,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
                     ],
                   ),
@@ -257,7 +279,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
                   decoration: BoxDecoration(
                     color: isCancelled
                         ? Colors.red.shade100
-                        : Colors.grey.shade50,
+                        : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(

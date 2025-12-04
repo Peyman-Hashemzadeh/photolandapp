@@ -614,12 +614,12 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedDate == null) {
-      SnackBarHelper.showError(context, 'لطفاً تاریخ دریافت را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا تاریخ دریافت را انتخاب کنید');
       return;
     }
 
     if (!_isCashPayment && _selectedBank == null) {
-      SnackBarHelper.showError(context, 'لطفاً بانک را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا بانک را انتخاب کنید');
       return;
     }
 

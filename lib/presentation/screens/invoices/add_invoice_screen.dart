@@ -18,6 +18,63 @@ import '../../widgets/custom_button.dart';
 import '../../widgets/customer_dropdown.dart';
 import 'invoice_payments_screen.dart';
 import 'invoice_preview_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+
+class PersianPriceInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    // جلوگیری از حذف یکجا
+    if (newValue.text.isEmpty) {
+      return newValue;
+    }
+
+    // حذف جداکننده و تبدیل فارسی → انگلیسی برای پردازش
+    String clean = newValue.text
+        .replaceAll('٬', '') // کاما فارسی
+        .replaceAll(',', '') // کاما انگلیسی
+        .replaceAllMapped(RegExp('[۰-۹]'), (Match m) {
+      return (m.group(0)!.codeUnitAt(0) - 1776).toString();
+    });
+
+    // اگر خالی شد
+    if (clean.isEmpty) clean = "0";
+
+    // تبدیل به int
+    final number = int.tryParse(clean) ?? 0;
+
+    // جداکننده سه‌رقمی انگلیسی
+    String formatted = _formatWithComma(number.toString());
+
+    // تبدیل اعداد انگلیسی به فارسی
+    formatted = DateHelper.toPersianDigits(formatted);
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
+  /// ۳ رقم ۳ رقم جدا می‌کند
+  String _formatWithComma(String value) {
+    final buffer = StringBuffer();
+    int digits = 0;
+
+    for (int i = value.length - 1; i >= 0; i--) {
+      buffer.write(value[i]);
+      digits++;
+      if (digits == 3 && i != 0) {
+        buffer.write(',');
+        digits = 0;
+      }
+    }
+
+    return buffer.toString().split('').reversed.join('');
+  }
+}
 
 class AddInvoiceScreen extends StatefulWidget {
   const AddInvoiceScreen({super.key});
@@ -91,11 +148,13 @@ class _InitialDialog extends StatefulWidget {
   final CustomerRepository customerRepository;
   final CustomerModel? initialCustomer;
   final Jalali? initialDate;
+  final String? existingInvoiceId;
 
   const _InitialDialog({
     required this.customerRepository,
     this.initialCustomer,
     this.initialDate,
+    this.existingInvoiceId,
   });
 
   @override
@@ -159,23 +218,63 @@ class _InitialDialogState extends State<_InitialDialog> {
     }
   }
 
-  void _handleSubmit() {
+  void _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedCustomer == null) {
-      SnackBarHelper.showError(context, 'لطفاً مشتری را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا مشتری را انتخاب کنید');
       return;
     }
 
     if (_selectedDate == null) {
-      SnackBarHelper.showError(context, 'لطفاً تاریخ سند را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا تاریخ فاکتور را انتخاب کنید');
       return;
     }
 
-    Navigator.pop(context, {
-      'customer': _selectedCustomer,
-      'date': _selectedDate,
-    });
+    // 🔥 اگر در حال ویرایش هستیم
+    if (widget.existingInvoiceId != null) {
+      try {
+        // دریافت فاکتور فعلی از Firestore
+        final doc = await FirebaseFirestore.instance
+            .collection('invoices')
+            .doc(widget.existingInvoiceId)
+            .get();
+
+        if (doc.exists) {
+          // 🔥 آپدیت فقط فیلدهای مشتری و تاریخ
+          await FirebaseFirestore.instance
+              .collection('invoices')
+              .doc(widget.existingInvoiceId)
+              .update({
+            'customerId': _selectedCustomer!.id,
+            'customerName': _selectedCustomer!.fullName,
+            'customerMobile': _selectedCustomer!.mobileNumber,
+            'invoiceDate': Timestamp.fromDate(_selectedDate!.toDateTime()),
+            'updatedAt': Timestamp.now(),
+          });
+
+          if (mounted) {
+            SnackBarHelper.showSuccess(context, 'مشخصات فاکتور ویرایش شد');
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          SnackBarHelper.showError(
+            context,
+            'خطا در ویرایش: ${e.toString()}',
+          );
+        }
+        return;
+      }
+    }
+
+    // بازگشت اطلاعات به صفحه قبل
+    if (mounted) {
+      Navigator.pop(context, {
+        'customer': _selectedCustomer,
+        'date': _selectedDate,
+      });
+    }
   }
 
   @override
@@ -191,7 +290,7 @@ class _InitialDialogState extends State<_InitialDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'ویرایش مشخصات',
+                'مشخصات فاکتور',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -225,7 +324,6 @@ class _InitialDialogState extends State<_InitialDialog> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Icon(Icons.arrow_drop_down, color: AppColors.primary),
                       Text(
                         _selectedDate != null
                             ? DateHelper.formatPersianDate(_selectedDate!)
@@ -237,6 +335,7 @@ class _InitialDialogState extends State<_InitialDialog> {
                               : AppColors.textLight,
                         ),
                       ),
+                    //  const Icon(Icons.arrow_drop_down, color: AppColors.primary),
                     ],
                   ),
                 ),
@@ -247,17 +346,17 @@ class _InitialDialogState extends State<_InitialDialog> {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('انصراف'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
                     child: CustomButton(
                       text: 'ثبت',
                       onPressed: _handleSubmit,
                       useGradient: true,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('انصراف'),
                     ),
                   ),
                 ],
@@ -293,14 +392,14 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   final CustomerRepository _customerRepository = CustomerRepository();
   final InvoiceRepository _invoiceRepository = InvoiceRepository();
   final ServiceRepository _serviceRepository = ServiceRepository();
-  final PaymentRepository _paymentRepository = PaymentRepository(); // 🔥 اضافه شد
+  final PaymentRepository _paymentRepository = PaymentRepository();
 
   InvoiceModel? _invoice;
   List<InvoiceItem> _items = [];
   List<ServiceModel> _services = [];
   bool _isLoading = true;
   int _totalAmount = 0;
-  int _paidAmount = 0; // 🔥 اضافه شد
+  int _paidAmount = 0;
   int _shippingCost = 0;
   int _discount = 0;
   String _notes = '';
@@ -323,14 +422,16 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
       InvoiceModel invoice;
 
-      // 🔥 چک کردن اینکه آیا در حال ویرایش هستیم؟
+      // 🔥 اگر existingInvoiceId داریم، فقط همون فاکتور رو بارگذاری می‌کنیم
       if (widget.existingInvoiceId != null) {
-        // 🔥 بارگذاری فاکتور موجود با invoiceNumber
-        final existingInvoice = await _invoiceRepository.getInvoiceByNumber(widget.invoiceNumber);
+        // 🔥 دریافت فاکتور موجود با ID
+        final doc = await FirebaseFirestore.instance
+            .collection('invoices')
+            .doc(widget.existingInvoiceId)
+            .get();
 
-        if (existingInvoice != null) {
-          // فاکتور موجود پیدا شد - حالت ویرایش
-          invoice = existingInvoice;
+        if (doc.exists) {
+          invoice = InvoiceModel.fromMap(doc.data()!, doc.id);
 
           // 🔥 بارگذاری کسورات و توضیحات از فاکتور موجود
           setState(() {
@@ -339,20 +440,8 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             _notes = invoice.notes ?? '';
           });
         } else {
-          // اگر فاکتور پیدا نشد، یکی جدید بساز
-          invoice = InvoiceModel(
-            id: '',
-            appointmentId: null,
-            customerId: widget.customer.id,
-            customerName: widget.customer.fullName,
-            customerMobile: widget.customer.mobileNumber,
-            invoiceNumber: widget.invoiceNumber,
-            invoiceDate: widget.invoiceDate.toDateTime(),
-            createdAt: DateTime.now(),
-          );
-
-          final invoiceId = await _invoiceRepository.createInvoice(invoice);
-          invoice = invoice.copyWith(id: invoiceId);
+          // اگر فاکتور پیدا نشد، خطا بده
+          throw Exception('فاکتور یافت نشد');
         }
       } else {
         // 🔥 حالت عادی: فاکتور جدید
@@ -412,8 +501,6 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   // 🔥 محاسبه مانده
   int get _remainingAmount => _grandTotal - _paidAmount;
 
-  // ... بقیه متدها بدون تغییر ...
-
   Future<void> _showAddItemDialog({InvoiceItem? item}) async {
     final result = await showDialog<InvoiceItem>(
       context: context,
@@ -429,12 +516,12 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         if (item == null) {
           await _invoiceRepository.addInvoiceItem(result);
           if (mounted) {
-            SnackBarHelper.showSuccess(context, 'آیتم با موفقیت اضافه شد');
+            SnackBarHelper.showSuccess(context, 'آیتم با موفقیت اضافه شد.');
           }
         } else {
           await _invoiceRepository.updateInvoiceItem(result);
           if (mounted) {
-            SnackBarHelper.showSuccess(context, 'آیتم با موفقیت ویرایش شد');
+            SnackBarHelper.showSuccess(context, 'آیتم با موفقیت ویرایش شد.');
           }
         }
       } catch (e) {
@@ -471,7 +558,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       try {
         await _invoiceRepository.deleteInvoiceItem(item.id);
         if (mounted) {
-          SnackBarHelper.showSuccess(context, 'آیتم با موفقیت حذف شد');
+          SnackBarHelper.showSuccess(context, 'آیتم با موفقیت حذف شد.');
         }
       } catch (e) {
         if (mounted) {
@@ -506,7 +593,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         );
         await _invoiceRepository.updateInvoice(updatedInvoice);
         if (mounted) {
-          SnackBarHelper.showSuccess(context, 'اطلاعات با موفقیت ذخیره شد');
+          SnackBarHelper.showSuccess(context, 'اطلاعات با موفقیت ذخیره شد.');
         }
       } catch (e) {
         if (mounted) {
@@ -517,8 +604,6 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   }
 
   Future<void> _showEditSpecsDialog() async {
-    final customers = await _customerRepository.getActiveCustomers().first;
-
     if (!mounted) return;
 
     final result = await showDialog<Map<String, dynamic>>(
@@ -527,37 +612,26 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         customerRepository: _customerRepository,
         initialCustomer: widget.customer,
         initialDate: widget.invoiceDate,
+        existingInvoiceId: _invoice?.id, // 🔥 پاس دادن ID فاکتور موجود
       ),
     );
 
     if (result != null && mounted) {
-      try {
-        final updatedInvoice = _invoice!.copyWith(
-          customerId: result['customer'].id,
-          customerName: result['customer'].fullName,
-          customerMobile: result['customer'].mobileNumber,
-          invoiceDate: result['date'].toDateTime(),
-        );
-        await _invoiceRepository.updateInvoice(updatedInvoice);
+      // 🔥 فقط به صفحه جدید با اطلاعات آپدیت شده بریم
+      // به جای pushReplacement از pop و push استفاده می‌کنیم
+      Navigator.pop(context); // برگشت از صفحه فعلی
 
-        if (mounted) {
-          SnackBarHelper.showSuccess(context, 'مشخصات با موفقیت ویرایش شد');
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => InvoiceFormScreen(
-                customer: result['customer'],
-                invoiceDate: result['date'],
-                invoiceNumber: widget.invoiceNumber,
-              ),
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          SnackBarHelper.showError(context, e.toString().replaceAll('Exception: ', ''));
-        }
-      }
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => InvoiceFormScreen(
+            customer: result['customer'],
+            invoiceDate: result['date'],
+            invoiceNumber: widget.invoiceNumber,
+            existingInvoiceId: _invoice?.id, // 🔥 پاس دادن همون ID
+          ),
+        ),
+      );
     }
   }
 
@@ -587,13 +661,6 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           ),
         ),
       ),
-      floatingActionButton: _isLoading
-          ? null
-          : FloatingActionButton(
-        onPressed: _showAddItemDialog,
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
     );
   }
 
@@ -603,9 +670,19 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-            onPressed: () => Navigator.pop(context),
+          GestureDetector(
+            onTap: () {},
+            child: Container(
+              width: 44,
+              height: 44,
+              // decoration: BoxDecoration(
+              //   color: Colors.grey.shade300,
+              //   shape: BoxShape.circle,
+              // ),
+              // child: const Center(
+              //   child: FaIcon(FontAwesomeIcons.user, color: Colors.grey, size: 20),
+              // ),
+            ),
           ),
           const Text(
             'صدور فاکتور',
@@ -615,19 +692,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               color: AppColors.textPrimary,
             ),
           ),
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: FaIcon(FontAwesomeIcons.user, color: Colors.grey, size: 20),
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.arrow_forward, color: AppColors.textPrimary),
+            onPressed: () => Navigator.pop(context),
           ),
         ],
       ),
@@ -643,89 +710,162 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            widget.customer.fullName,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            widget.customer.mobileNumber,
-            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-          ),
-          const Divider(height: 16),
+          // ✅ نام مشتری و شماره همراه در کنار هم
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                DateHelper.formatPersianDate(widget.invoiceDate),
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              // نام مشتری (سمت راست)
+              Expanded(
+                child: Text(
+                  widget.customer.fullName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                  textAlign: TextAlign.right,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              Text(
-                DateHelper.toPersianDigits(widget.invoiceNumber.toString()),
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+
+              const SizedBox(width: 16),
+
+              // شماره همراه (سمت چپ)
+              Expanded(
+                child: Text(
+                  DateHelper.toPersianDigits(widget.customer.mobileNumber),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.left,
+                  textDirection: TextDirection.ltr,
+                ),
               ),
             ],
           ),
-          const Divider(height: 16),
-          // 🔥 نمایش جمع کل و مانده
+
+          const SizedBox(height: 16),
+
+          // ✅ تاریخ و شماره سند با آیکون
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'مانده: ${ServiceModel.formatNumber(_remainingAmount)}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: _remainingAmount > 0 ? AppColors.error : AppColors.success,
-                ),
+              // تاریخ با آیکون تقویم (سمت چپ)
+              Row(
+                children: [
+                  const Icon(
+                    Icons.calendar_today,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    DateHelper.formatPersianDate(widget.invoiceDate),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
               ),
+
+              // شماره سند با آیکون (سمت راست)
+              Row(
+                children: [
+                  const Icon(
+                    Icons.receipt_long,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    DateHelper.toPersianDigits(widget.invoiceNumber.toString()),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // جمع کل و مانده
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // جمع کل (سمت راست)
               Text(
-                'جمع کل: ${ServiceModel.formatNumber(_grandTotal)}',
+                'جمع کل: ${DateHelper.toPersianDigits(ServiceModel.formatNumber(_grandTotal))}',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textPrimary,
                 ),
               ),
+
+              // مانده (سمت چپ)
+              Text(
+                'مانده: ${DateHelper.toPersianDigits(ServiceModel.formatNumber(_remainingAmount))}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: _remainingAmount > 0 ? AppColors.success : AppColors.error,
+                ),
+              ),
             ],
           ),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
         ],
       ),
     );
   }
 
   Widget _buildItemsList() {
-    if (_items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.receipt_long, size: 80, color: Colors.grey.shade300),
-            const SizedBox(height: 16),
-            Text(
-              'رکوردی ثبت نشده است',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'برای افزودن آیتم، دکمه + را بزنید',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-            ),
-          ],
-        ),
-      );
-    }
-
     return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: _items.length,
+      padding: const EdgeInsets.symmetric(horizontal: 20 , vertical: 10),
+      itemCount: _items.isEmpty ? 1 : _items.length + 1, // 🔥 +1 برای دکمه افزودن
       itemBuilder: (context, index) {
+        // 🔥 اگر لیست خالی بود
+        if (_items.isEmpty && index == 0) {
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 60),
+              Icon(Icons.receipt_long, size: 80, color: Colors.grey.shade300),
+              const SizedBox(height: 16),
+              Text(
+                'رکوردی ثبت نشده است',
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'برای افزودن آیتم، دکمه زیر را بزنید',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+              ),
+              const SizedBox(height: 24),
+              // 🔥 دکمه افزودن آیتم
+              _buildAddButton(),
+            ],
+          );
+        }
+
+        // 🔥 اگر آخرین آیتم بود، دکمه افزودن رو نمایش بده
+        if (index == _items.length) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 16, bottom: 80),
+            child: _buildAddButton(),
+          );
+        }
+
+        // نمایش آیتم‌های عادی
         final item = _items[index];
         return _ItemCard(
           item: item,
@@ -733,6 +873,35 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           onDelete: () => _deleteItem(item),
         );
       },
+    );
+  }
+
+  Widget _buildAddButton() {
+    return Center(
+      child: InkWell(
+        onTap: _showAddItemDialog,
+        borderRadius: BorderRadius.circular(50),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          decoration: BoxDecoration(
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add_circle, color: Colors.blue, size: 24),
+              SizedBox(width: 4),
+              Text(
+                'اضافه کردن آیتم جدید',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -838,19 +1007,19 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.grey.shade200,
-              foregroundColor: AppColors.textSecondary,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              minimumSize: const Size(double.infinity, 48),
-            ),
-            child: const Text('برگشت'),
-          ),
+         //ElevatedButton(
+         //  onPressed: () => Navigator.pop(context),
+         //  style: ElevatedButton.styleFrom(
+         //    backgroundColor: Colors.grey.shade200,
+         //    foregroundColor: AppColors.textSecondary,
+         //    padding: const EdgeInsets.symmetric(vertical: 12),
+         //    shape: RoundedRectangleBorder(
+         //      borderRadius: BorderRadius.circular(12),
+         //    ),
+         //    minimumSize: const Size(double.infinity, 48),
+         //  ),
+         //  child: const Text('برگشت'),
+         //),
         ],
       ),
     );
@@ -907,10 +1076,6 @@ class _ItemCardState extends State<_ItemCard> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '${widget.item.quantity} عدد',
-                  style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
-                ),
-                Text(
                   widget.item.serviceName,
                   style: const TextStyle(
                     fontSize: 16,
@@ -918,18 +1083,22 @@ class _ItemCardState extends State<_ItemCard> {
                     color: AppColors.textPrimary,
                   ),
                 ),
+                Text(
+                  '${DateHelper.toPersianDigits(widget.item.quantity.toString())} عدد',
+                  style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
+                ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  ServiceModel.formatNumber(widget.item.unitPrice),
-                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  DateHelper.toPersianDigits(ServiceModel.formatNumber(widget.item.unitPrice)), // 🔥 فارسی
+                  style: const TextStyle(fontSize: 15, color: AppColors.textSecondary),
                 ),
                 Text(
-                  ServiceModel.formatNumber(widget.item.totalPrice),
+                  DateHelper.toPersianDigits(ServiceModel.formatNumber(widget.item.totalPrice)), // 🔥 فارسی
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -990,6 +1159,7 @@ class _ItemCardState extends State<_ItemCard> {
 }
 
 // دیالوگ افزودن آیتم
+// دیالوگ افزودن آیتم
 class _AddItemDialog extends StatefulWidget {
   final InvoiceModel invoice;
   final List<ServiceModel> services;
@@ -1015,8 +1185,10 @@ class _AddItemDialogState extends State<_AddItemDialog> {
   void initState() {
     super.initState();
     if (widget.item != null) {
-      _quantityController.text = widget.item!.quantity.toString();
-      _priceController.text = ServiceModel.formatNumber(widget.item!.unitPrice);
+      // 🔥 ویرایش: نمایش تعداد و مبلغ ذخیره شده به فارسی
+      _quantityController.text = DateHelper.toPersianDigits(widget.item!.quantity.toString());
+      _priceController.text = DateHelper.toPersianDigits(ServiceModel.formatNumber(widget.item!.unitPrice));
+
       _selectedService = widget.services.firstWhere(
             (s) => s.id == widget.item!.serviceId,
         orElse: () => widget.services.first,
@@ -1034,26 +1206,48 @@ class _AddItemDialogState extends State<_AddItemDialog> {
   void _onServiceChanged(ServiceModel? service) {
     setState(() {
       _selectedService = service;
-      if (service != null && service.price != null) {
-        _priceController.text = ServiceModel.formatNumber(service.price!);
+      // 🔥 فقط در حالت افزودن (نه ویرایش)، مبلغ پیش‌فرض رو نمایش بده
+      if (service != null && service.price != null && widget.item == null) {
+        _priceController.text = DateHelper.toPersianDigits(ServiceModel.formatNumber(service.price!));
       }
     });
+  }
+
+  // 🔥 متد کمکی برای تبدیل اعداد فارسی به انگلیسی و حذف کاما
+  int _parsePrice(String text) {
+    if (text.isEmpty) return 0;
+
+    // حذف کاما (فارسی و انگلیسی) و تبدیل اعداد فارسی به انگلیسی
+    String clean = text
+        .replaceAll('٬', '') // کاما فارسی
+        .replaceAll(',', '') // کاما انگلیسی
+        .replaceAllMapped(RegExp('[۰-۹]'), (Match m) {
+      return (m.group(0)!.codeUnitAt(0) - 1776).toString();
+    });
+
+    return int.tryParse(clean) ?? 0;
   }
 
   void _handleSubmit() {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedService == null) {
-      SnackBarHelper.showError(context, 'لطفاً خدمت را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا خدمت را انتخاب کنید');
       return;
     }
+
+    // 🔥 تبدیل تعداد فارسی به انگلیسی
+    final quantityText = _quantityController.text.replaceAllMapped(
+      RegExp('[۰-۹]'),
+          (Match m) => (m.group(0)!.codeUnitAt(0) - 1776).toString(),
+    );
 
     final item = InvoiceItem(
       id: widget.item?.id ?? '',
       invoiceId: widget.invoice.id,
       serviceId: _selectedService!.id,
       serviceName: _selectedService!.serviceName,
-      quantity: int.parse(_quantityController.text),
-      unitPrice: ServiceModel.parsePrice(_priceController.text) ?? 0,
+      quantity: int.parse(quantityText),
+      unitPrice: _parsePrice(_priceController.text), // 🔥 استفاده از متد جدید
       createdAt: widget.item?.createdAt ?? DateTime.now(),
     );
 
@@ -1115,7 +1309,9 @@ class _AddItemDialogState extends State<_AddItemDialog> {
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.right,
                   maxLength: 4,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹]')), // 🔥 اجازه اعداد فارسی و انگلیسی
+                  ],
                   decoration: InputDecoration(
                     hintText: 'تعداد',
                     filled: true,
@@ -1136,12 +1332,18 @@ class _AddItemDialogState extends State<_AddItemDialog> {
 
                 TextFormField(
                   controller: _priceController,
-                  keyboardType: TextInputType.number,
                   textAlign: TextAlign.right,
-                  inputFormatters: [PriceInputFormatter()],
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    PersianPriceInputFormatter(), // 🔥 فرمت فارسی
+                  ],
                   decoration: InputDecoration(
-                    hintText: 'مبلغ',
-                    prefixText: 'ریال',
+                    hintText: 'مبلغ واحد',
+                    suffixText: 'ریال',
+                    suffixStyle: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
@@ -1150,7 +1352,7 @@ class _AddItemDialogState extends State<_AddItemDialog> {
                     ),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return 'مبلغ اجباری است';
+                    if (value == null || value.isEmpty) return 'مبلغ واحد اجباری است';
                     return null;
                   },
                 ),
@@ -1160,17 +1362,17 @@ class _AddItemDialogState extends State<_AddItemDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('انصراف'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
                       child: CustomButton(
                         text: widget.item == null ? 'ثبت' : 'ویرایش',
                         onPressed: _handleSubmit,
                         useGradient: true,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('انصراف'),
                       ),
                     ),
                   ],
@@ -1210,10 +1412,10 @@ class _DetailsDialogState extends State<_DetailsDialog> {
   void initState() {
     super.initState();
     if (widget.shippingCost > 0) {
-      _shippingController.text = ServiceModel.formatNumber(widget.shippingCost);
+      _shippingController.text = DateHelper.toPersianDigits(ServiceModel.formatNumber(widget.shippingCost));
     }
     if (widget.discount > 0) {
-      _discountController.text = ServiceModel.formatNumber(widget.discount);
+      _discountController.text = DateHelper.toPersianDigits(ServiceModel.formatNumber(widget.discount));
     }
     _notesController.text = widget.notes;
   }
@@ -1226,10 +1428,23 @@ class _DetailsDialogState extends State<_DetailsDialog> {
     super.dispose();
   }
 
+  int _parsePrice(String text) {
+    if (text.isEmpty) return 0;
+
+    String clean = text
+        .replaceAll('٬', '')
+        .replaceAll(',', '')
+        .replaceAllMapped(RegExp('[۰-۹]'), (Match m) {
+      return (m.group(0)!.codeUnitAt(0) - 1776).toString();
+    });
+
+    return int.tryParse(clean) ?? 0;
+  }
+
   void _handleSubmit() {
     Navigator.pop(context, {
-      'shippingCost': ServiceModel.parsePrice(_shippingController.text) ?? 0,
-      'discount': ServiceModel.parsePrice(_discountController.text) ?? 0,
+      'shippingCost': ServiceModel.parsePrice(_shippingController.text) ,
+      'discount': ServiceModel.parsePrice(_discountController.text),
       'notes': _notesController.text.trim(),
     });
   }
@@ -1259,16 +1474,26 @@ class _DetailsDialogState extends State<_DetailsDialog> {
 
                 TextFormField(
                   controller: _shippingController,
-                  keyboardType: TextInputType.number,
                   textAlign: TextAlign.right,
-                  inputFormatters: [PriceInputFormatter()],
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    PersianPriceInputFormatter(), // 👈 فرمت جدید
+                  ],
                   decoration: InputDecoration(
                     hintText: 'هزینه ارسال',
+
+                    // نمایش "ریال" سمت چپ فیلد
+                    suffixText: 'ریال',
+                    suffixStyle: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
+
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide.none,
                     ),
                   ),
                 ),
@@ -1277,16 +1502,26 @@ class _DetailsDialogState extends State<_DetailsDialog> {
 
                 TextFormField(
                   controller: _discountController,
-                  keyboardType: TextInputType.number,
                   textAlign: TextAlign.right,
-                  inputFormatters: [PriceInputFormatter()],
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    PersianPriceInputFormatter(), // 👈 فرمت جدید
+                  ],
                   decoration: InputDecoration(
                     hintText: 'تخفیف',
+
+                    // نمایش "ریال" سمت چپ فیلد
+                    suffixText: 'ریال',
+                    suffixStyle: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
+
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide.none,
                     ),
                   ),
                 ),
@@ -1304,7 +1539,7 @@ class _DetailsDialogState extends State<_DetailsDialog> {
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide.none,
                     ),
                   ),
                 ),
@@ -1314,17 +1549,17 @@ class _DetailsDialogState extends State<_DetailsDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('انصراف'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
                       child: CustomButton(
                         text: 'ثبت',
                         onPressed: _handleSubmit,
                         useGradient: true,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('انصراف'),
                       ),
                     ),
                   ],

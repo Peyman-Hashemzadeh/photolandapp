@@ -41,7 +41,17 @@ class ServiceModel {
   // تبدیل رشته قیمت با کاما به عدد
   static int? parsePrice(String priceStr) {
     if (priceStr.isEmpty) return null;
-    final cleaned = priceStr.replaceAll(',', '');
+
+    // حذف کاما (انگلیسی و فارسی برای ایمنی)
+    String cleaned = priceStr
+        .replaceAll(',', '')
+        .replaceAll('٬', ''); // کاما فارسی
+
+    // تبدیل اعداد فارسی به انگلیسی (دقیقاً مثل formatter)
+    cleaned = cleaned.replaceAllMapped(RegExp(r'[۰-۹]'), (Match m) {
+      return (m.group(0)!.codeUnitAt(0) - 1776).toString();
+    });
+
     return int.tryParse(cleaned);
   }
 

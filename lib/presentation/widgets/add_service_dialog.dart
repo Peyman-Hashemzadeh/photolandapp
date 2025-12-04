@@ -92,7 +92,7 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
                   maxLength: 32,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'لطفاً عنوان خدمت را وارد کنید';
+                      return 'لطفا عنوان خدمت را وارد کنید';
                     }
                     if (value.trim().length > 32) {
                       return 'عنوان خدمت نباید بیشتر از ۳۲ کاراکتر باشد';

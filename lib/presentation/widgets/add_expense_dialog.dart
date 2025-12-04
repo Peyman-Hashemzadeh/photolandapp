@@ -91,7 +91,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
                   maxLength: 32,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'لطفاً عنوان هزینه را وارد کنید';
+                      return 'لطفا عنوان هزینه را وارد کنید';
                     }
                     if (value.trim().length > 32) {
                       return 'عنوان هزینه نباید بیشتر از ۳۲ کاراکتر باشد';

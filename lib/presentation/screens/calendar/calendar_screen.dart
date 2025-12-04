@@ -214,7 +214,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       try {
         await _repository.updateAppointmentStatus(appointment.id, 'confirmed');
         if (mounted) {
-          SnackBarHelper.showSuccess(context, 'نوبت با موفقیت فعال شد');
+          SnackBarHelper.showSuccess(context, 'نوبت با موفقیت فعال شد.');
         }
       } catch (e) {
         if (mounted) {
@@ -272,9 +272,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-            onPressed: () => Navigator.pop(context),
+          GestureDetector(
+            onTap: () {},
+            child: Container(
+              width: 44,
+              height: 44,
+             //decoration: BoxDecoration(
+             //  color: Colors.grey.shade300,
+             //  shape: BoxShape.circle,
+             //),
+             //child: const Center(
+             //  child: FaIcon(
+             //    FontAwesomeIcons.user,
+             //    color: Colors.grey,
+             //    size: 20,
+             //  ),
+             //),
+            ),
           ),
           const Text(
             'تقویم',
@@ -284,23 +298,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
               color: AppColors.textPrimary,
             ),
           ),
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: FaIcon(
-                  FontAwesomeIcons.user,
-                  color: Colors.grey,
-                  size: 20,
-                ),
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.arrow_forward, color: AppColors.textPrimary),
+            onPressed: () => Navigator.pop(context),
           ),
         ],
       ),
@@ -313,39 +313,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // دکمه انتخاب ماه/سال
-          GestureDetector(
-            onTap: _selectDate,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.arrow_drop_down, color: AppColors.primary),
-                  const SizedBox(width: 4),
-                  Text(
-                    DateHelper.formatMonthYear(_selectedDate),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
           // دکمه امروز
           GestureDetector(
             onTap: _goToToday,
@@ -369,6 +336,39 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
+              ),
+            ),
+          ),
+
+          // دکمه انتخاب ماه/سال
+          GestureDetector(
+            onTap: _selectDate,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    DateHelper.formatMonthYear(_selectedDate),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                ],
               ),
             ),
           ),
@@ -479,7 +479,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'نوبتی برای این روز ثبت نشده است',
+                  'نوبتی برای این روز ثبت نشده است.',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey.shade600,

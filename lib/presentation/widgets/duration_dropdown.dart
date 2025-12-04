@@ -46,7 +46,6 @@ class DurationDropdown extends StatelessWidget {
           children: [
             InkWell(
               onTap: () {
-                // باز کردن منو به‌صورت دستی (درون DropdownButton کار می‌کند)
                 FocusScope.of(context).requestFocus(FocusNode());
               },
               child: Container(
@@ -60,16 +59,14 @@ class DurationDropdown extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    // 👇 آیکون سمت چپ
-                    const Icon(Icons.arrow_drop_down, color: AppColors.primary),
-                    const SizedBox(width: 8),
+                    // ✅ Dropdown سمت راست
                     Expanded(
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<int>(
                           value: selectedDuration,
                           isExpanded: true,
                           alignment: Alignment.centerRight,
-                          icon: const SizedBox.shrink(), // 🚫 آیکون پیش‌فرض حذف شد
+                          icon: const SizedBox.shrink(), // حذف آیکون پیش‌فرض
                           hint: const Align(
                             alignment: Alignment.centerRight,
                             child: Text(
@@ -111,6 +108,14 @@ class DurationDropdown extends StatelessWidget {
                           },
                         ),
                       ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // ✅ آیکون سمت چپ
+                    const Icon(
+                      Icons.arrow_drop_down,
+                      color: AppColors.primary,
                     ),
                   ],
                 ),

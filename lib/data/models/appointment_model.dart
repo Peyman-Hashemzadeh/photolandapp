@@ -136,9 +136,11 @@ class AppointmentModel {
     String? source,
     DateTime? createdAt,
     DateTime? updatedAt,
+    // ✅ پارامترهای جدید برای مشخص کردن null بودن
+    bool clearBankId = false,
+    bool clearBankName = false,
   }) {
     return AppointmentModel(
-
       id: id ?? this.id,
       customerId: customerId ?? this.customerId,
       customerName: customerName ?? this.customerName,
@@ -151,8 +153,9 @@ class AppointmentModel {
       notes: notes ?? this.notes,
       depositAmount: depositAmount ?? this.depositAmount,
       depositReceivedDate: depositReceivedDate ?? this.depositReceivedDate,
-      bankId: bankId ?? this.bankId,
-      bankName: bankName ?? this.bankName,
+      // ✅ اگه clearBankId فعال باشه، null میشه، وگرنه مقدار جدید یا قدیمی
+      bankId: clearBankId ? null : (bankId ?? this.bankId),
+      bankName: clearBankName ? null : (bankName ?? this.bankName),
       status: status ?? this.status,
       source: source ?? this.source,
       createdAt: createdAt ?? this.createdAt,

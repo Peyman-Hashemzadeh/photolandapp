@@ -12,6 +12,13 @@ class CustomTextField extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
   final int? maxLength;
   final Widget? suffixIcon;
+  final ValueChanged<String>? onChanged;
+
+  /// جدید: امکان تعیین سایز فونت و رنگ متن
+  final double fontSize;
+  final double labelFontSize;
+  final double floatingLabelFontSize;
+  final Color? textColor;
 
   const CustomTextField({
     super.key,
@@ -24,6 +31,11 @@ class CustomTextField extends StatelessWidget {
     this.inputFormatters,
     this.maxLength,
     this.suffixIcon,
+    this.onChanged,
+    this.fontSize = 14,
+    this.labelFontSize = 12,
+    this.floatingLabelFontSize = 13,
+    this.textColor, // اگه null باشه از AppColors.textPrimary استفاده می‌کنیم
   });
 
   @override
@@ -35,16 +47,31 @@ class CustomTextField extends StatelessWidget {
         obscureText: obscureText,
         keyboardType: keyboardType,
         validator: validator,
+        onChanged: onChanged,
         inputFormatters: inputFormatters,
         maxLength: maxLength,
         textAlign: TextAlign.right,
+
+        /// فونت متن داخل TextField (استفاده از textColor یا fallback به textPrimary)
+        style: TextStyle(
+          fontSize: fontSize,
+          color: textColor ?? AppColors.textPrimary,
+        ),
+
         decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(
+          labelText: hint,
+          labelStyle: TextStyle(
             color: AppColors.textLight,
-            fontSize: 14,
+            fontSize: labelFontSize,
           ),
-          // 👇 آیکون اصلی (مثل موبایل یا قفل) در سمت راست
+          floatingLabelStyle: TextStyle(
+            color: AppColors.primary,
+            fontSize: floatingLabelFontSize,
+            fontWeight: FontWeight.bold,
+            backgroundColor: Colors.white,
+          ),
+          floatingLabelBehavior: FloatingLabelBehavior.auto,
+
           prefixIcon: icon != null
               ? Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -52,25 +79,27 @@ class CustomTextField extends StatelessWidget {
           )
               : null,
 
-          // 👇 آیکون چشم یا سایر آیکون‌ها در سمت چپ
           suffixIcon: suffixIcon,
 
           filled: true,
-          fillColor: Colors.white,  // ← key: از grey[100] به white تغییر دادم
-          border: OutlineInputBorder(  // ← تغییر: border عادی با رنگ خاکستری (non-const اگر لازم)
+          fillColor: Colors.white,
+
+          border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(  // ← فیکس: const حذف شد
-              color: Colors.grey,
+            borderSide: BorderSide(
+              color: Colors.grey.shade300,
               width: 1,
             ),
           ),
-          enabledBorder: OutlineInputBorder(  // ← تغییر: enabledBorder با رنگ خاکستری ملایم (non-const)
+
+          enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(  // ← فیکس: const حذف شد + ! برای non-null
-              color: Colors.grey[100]!,
+            borderSide: BorderSide(
+              color: Colors.grey.shade300,
               width: 1,
             ),
           ),
+
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(
@@ -78,6 +107,7 @@ class CustomTextField extends StatelessWidget {
               width: 2,
             ),
           ),
+
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(
@@ -85,6 +115,7 @@ class CustomTextField extends StatelessWidget {
               width: 1,
             ),
           ),
+
           focusedErrorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(
@@ -92,7 +123,9 @@ class CustomTextField extends StatelessWidget {
               width: 2,
             ),
           ),
-          counterText: '', // حذف شمارنده کاراکتر
+
+          counterText: '',
+
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 16,

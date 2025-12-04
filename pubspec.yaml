@@ -21,12 +21,17 @@ dependencies:
   # Firebase
   firebase_core: ^3.6.0
   firebase_auth: ^5.3.1
+  firebase_messaging: ^15.0.0
   cloud_firestore: ^5.4.4
+
+  cloud_functions: ^5.0.0
 
   # State Management
   provider: ^6.1.1
 
   path_provider: ^2.1.4
+
+  go_router: ^14.0.0
 
   # تقویم شمسی
   shamsi_date: ^1.0.1
@@ -42,15 +47,24 @@ dependencies:
   flutter_svg: ^2.2.1
   font_awesome_flutter: ^10.12.0
 
+  # برای انتخاب عکس
+  image_picker: ^1.0.7
+
+
   # برای QR Code
   qr_flutter: ^4.1.0
 
   # برای هش SHA-256
   crypto: ^3.0.7
 
+  flutter_local_notifications: ^19.5.0
+  shared_preferences: ^2.5.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+  flutter_launcher_icons: ^0.13.1
 
 
   flutter_lints: ^5.0.0
@@ -68,3 +82,12 @@ flutter:
     - family: 'Vazirmatn'
       fonts:
         - asset: fonts/Vazirmatn-Regular.ttf
+
+
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  adaptive_icon_background: "#fff"
+  adaptive_icon_foreground: "assets/images/app_icon_foreground.png"  # اختیاری

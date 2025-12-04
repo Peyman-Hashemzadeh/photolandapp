@@ -77,6 +77,90 @@ class InvoiceRepository {
     });
   }
 
+  // 🔥 دریافت فاکتورهای تسویه شده نزدیک به تحویل (برای یادآوری)
+  Stream<List<Map<String, dynamic>>> getPendingDeliveryInvoices() async* {
+    await for (var snapshot in _firestore
+        .collection(_invoicesCollection)
+        .snapshots()) {
+
+      final List<Map<String, dynamic>> result = [];
+
+      for (var doc in snapshot.docs) {
+        try {
+          final invoice = InvoiceModel.fromMap(doc.data(), doc.id);
+
+          // 🔥 چک ۱: فقط editing یا null (فاکتورهای قدیمی)
+          if (invoice.status != null && invoice.status != 'editing') {
+            print('⏭️ فاکتور ${invoice.invoiceNumber} رد شد: status = ${invoice.status}');
+            continue;
+          }
+
+          // محاسبه مبالغ
+          final grandTotal = await calculateGrandTotal(invoice.id);
+          print('💰 فاکتور ${invoice.invoiceNumber}: grandTotal = $grandTotal');
+
+          final paidData = await _calculatePaidAmountAndLastDate(invoice.id);
+          final paidAmount = paidData['amount'] as int;
+          final lastPaymentDate = paidData['lastDate'] as DateTime?;
+
+          print('💵 فاکتور ${invoice.invoiceNumber}: paidAmount = $paidAmount, lastDate = $lastPaymentDate');
+
+          // فقط فاکتورهای تسویه شده که آخرین پرداخت دارند
+          if (paidAmount >= grandTotal && grandTotal > 0 && lastPaymentDate != null) {
+            print('✅ فاکتور ${invoice.invoiceNumber} اضافه شد به یادآوری');
+            result.add({
+              'invoice': invoice,
+              'lastPaymentDate': lastPaymentDate,
+            });
+          } else {
+            print('⏭️ فاکتور ${invoice.invoiceNumber} رد شد: تسویه نشده یا پرداخت نداره');
+          }
+        } catch (e) {
+          print('⚠️ خطا در پردازش فاکتور ${doc.id}: $e');
+          continue;
+        }
+      }
+
+      print('📊 تعداد کل فاکتورهای یادآوری: ${result.length}');
+      yield result;
+    }
+  }
+
+  // محاسبه مجموع پرداختی‌ها و آخرین تاریخ پرداخت
+  Future<Map<String, dynamic>> _calculatePaidAmountAndLastDate(String invoiceId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('payments')
+          .where('appointmentId', isEqualTo: invoiceId)
+          .get();
+
+      int total = 0;
+      DateTime? lastDate;
+
+      for (var doc in snapshot.docs) {
+        final amount = (doc.data()['amount'] as int?) ?? 0;
+        total += amount;
+
+        final paymentDate = (doc.data()['paymentDate'] as Timestamp?)?.toDate();
+        if (paymentDate != null) {
+          if (lastDate == null || paymentDate.isAfter(lastDate)) {
+            lastDate = paymentDate;
+          }
+        }
+      }
+
+      return {
+        'amount': total,
+        'lastDate': lastDate,
+      };
+    } catch (e) {
+      return {
+        'amount': 0,
+        'lastDate': null,
+      };
+    }
+  }
+
   // ایجاد فاکتور جدید
   Future<String> createInvoice(InvoiceModel invoice) async {
     try {
@@ -101,13 +185,23 @@ class InvoiceRepository {
     }
   }
 
+  // بروزرسانی وضعیت فاکتور
+  Future<void> updateInvoiceStatus(String invoiceId, String status) async {
+    try {
+      await _firestore.collection(_invoicesCollection).doc(invoiceId).update({
+        'status': status,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+    } catch (e) {
+      throw Exception('خطا در تغییر وضعیت فاکتور: $e');
+    }
+  }
+
   // حذف فاکتور
   Future<void> deleteInvoice(String invoiceId) async {
     try {
-      // حذف فاکتور
       await _firestore.collection(_invoicesCollection).doc(invoiceId).delete();
 
-      // حذف همه آیتم‌های فاکتور
       final items = await _firestore
           .collection(_itemsCollection)
           .where('invoiceId', isEqualTo: invoiceId)
@@ -196,16 +290,13 @@ class InvoiceRepository {
   // محاسبه جمع کل (آیتم‌ها + هزینه ارسال - تخفیف)
   Future<int> calculateGrandTotal(String invoiceId) async {
     try {
-      // دریافت فاکتور
       final doc = await _firestore.collection(_invoicesCollection).doc(invoiceId).get();
       if (!doc.exists) return 0;
 
       final invoice = InvoiceModel.fromMap(doc.data()!, doc.id);
 
-      // مجموع آیتم‌ها
       final itemsTotal = await calculateInvoiceTotal(invoiceId);
 
-      // محاسبه جمع کل
       int grandTotal = itemsTotal;
       if (invoice.shippingCost != null) grandTotal += invoice.shippingCost!;
       if (invoice.discount != null) grandTotal -= invoice.discount!;

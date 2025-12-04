@@ -7,6 +7,8 @@ class UserModel {
   final String studioCode;
   final DateTime createdAt;
   final bool isActive;
+  final String? email;  // 🔥 جدید
+  final String? profileImagePath;  // 🔥 جدید
 
   UserModel({
     required this.id,
@@ -15,6 +17,8 @@ class UserModel {
     required this.studioCode,
     required this.createdAt,
     this.isActive = true,
+    this.email,  // 🔥 جدید
+    this.profileImagePath,  // 🔥 جدید
   });
 
   // تبدیل از Map به Object
@@ -26,6 +30,8 @@ class UserModel {
       studioCode: map['studioCode'] ?? '',
       createdAt: (map['createdAt'] as Timestamp).toDate(),
       isActive: map['isActive'] ?? true,
+      email: map['email'],  // 🔥 جدید
+      profileImagePath: map['profileImagePath'],  // 🔥 جدید
     );
   }
 
@@ -37,6 +43,8 @@ class UserModel {
       'studioCode': studioCode,
       'createdAt': Timestamp.fromDate(createdAt),
       'isActive': isActive,
+      'email': email,  // 🔥 جدید
+      'profileImagePath': profileImagePath,  // 🔥 جدید
     };
   }
 
@@ -48,6 +56,8 @@ class UserModel {
     String? studioCode,
     DateTime? createdAt,
     bool? isActive,
+    String? email,  // 🔥 جدید
+    String? profileImagePath,  // 🔥 جدید
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -56,6 +66,8 @@ class UserModel {
       studioCode: studioCode ?? this.studioCode,
       createdAt: createdAt ?? this.createdAt,
       isActive: isActive ?? this.isActive,
+      email: email ?? this.email,  // 🔥 جدید
+      profileImagePath: profileImagePath ?? this.profileImagePath,  // 🔥 جدید
     );
   }
 }

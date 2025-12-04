@@ -2,17 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:persian_datetime_picker/persian_datetime_picker.dart';
 import 'presentation/screens/splash/splash_screen.dart';
 import 'core/constants/colors.dart';
+import 'services/notification_service.dart';
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(); // بسیار مهم
+  await NotificationService.showNotification(
+    title: message.notification?.title ?? "نوتیف جدید",
+    body: message.notification?.body ?? "",
+  );
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // راه‌اندازی Firebase
   await Firebase.initializeApp();
 
-  // تنظیم orientation فقط Portrait
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  await NotificationService.initialize();
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -30,46 +43,28 @@ class MyApp extends StatelessWidget {
       title: 'فتولند',
       debugShowCheckedModeBanner: false,
 
-      // تنظیمات زبان فارسی
       locale: const Locale('fa', 'IR'),
       supportedLocales: const [
-        Locale('fa', 'IR'),  // فارسی
-        Locale('en', 'US'),  // انگلیسی fallback
+        Locale('fa', 'IR'),
+        Locale('en', 'US'),
       ],
       localizationsDelegates: const [
-
         PersianMaterialLocalizations.delegate,
         PersianCupertinoLocalizations.delegate,
-
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
 
-      // تم برنامه
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.primary,
-          primary: AppColors.primary,
         ),
         scaffoldBackgroundColor: AppColors.background,
         useMaterial3: true,
-
-        // تنظیمات فونت فارسی
-        fontFamily: 'Vazirmatn', // بعداً فونت اضافه میکنیم
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(fontFamily: 'Vazirmatn'),
-        ),
-        // تنظیمات AppBar
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          centerTitle: true,
-        ),
+        fontFamily: 'Vazirmatn',
       ),
 
-      // صفحه اول
       home: const SplashScreen(),
     );
   }

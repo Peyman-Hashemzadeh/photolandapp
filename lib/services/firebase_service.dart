@@ -39,7 +39,7 @@ class FirebaseService {
     try {
       // ۱. بررسی کد آتلیه
       if (!validateStudioCode(studioCode)) {
-        throw Exception('کد آتلیه معتبر نیست. لطفاً با مدیر آتلیه تماس بگیرید');
+        throw Exception('کد آتلیه معتبر نیست. لطفا با مدیر آتلیه تماس بگیرید');
       }
 
       // ۲. بررسی تکراری بودن شماره
@@ -93,7 +93,7 @@ class FirebaseService {
       if (e.toString().contains('Exception:')) {
         rethrow; // خطاهای خودمون رو دوباره پرتاب کن
       }
-      throw Exception('خطا در ثبت‌نام. لطفاً دوباره تلاش کنید');
+      throw Exception('خطا در ثبت‌نام. لطفا دوباره تلاش کنید');
     }
   }
 
@@ -126,7 +126,7 @@ class FirebaseService {
       // تبدیل خطاهای Firebase به فارسی
       switch (e.code) {
         case 'user-not-found':
-          throw Exception('اطلاعات شما یافت نشد. لطفاً ابتدا ثبت‌نام کنید');
+          throw Exception('اطلاعات شما یافت نشد. لطفا ابتدا ثبت‌نام کنید');
         case 'wrong-password':
           throw Exception('رمز عبور اشتباه است');
         case 'invalid-email':
@@ -136,7 +136,7 @@ class FirebaseService {
         case 'invalid-credential':
           throw Exception('شماره موبایل یا رمز عبور اشتباه است');
         case 'too-many-requests':
-          throw Exception('تعداد تلاش‌های شما زیاد است. لطفاً بعداً امتحان کنید');
+          throw Exception('تعداد تلاش‌های شما زیاد است. لطفا بعداً امتحان کنید');
         case 'network-request-failed':
           throw Exception('خطا در اتصال به اینترنت');
         default:
@@ -147,7 +147,7 @@ class FirebaseService {
       if (e.toString().contains('Exception:')) {
         rethrow; // خطاهای خودمون رو دوباره پرتاب کن
       }
-      throw Exception('خطا در ورود به سیستم. لطفاً دوباره تلاش کنید');
+      throw Exception('خطا در ورود به سیستم. لطفا دوباره تلاش کنید');
     }
   }
 

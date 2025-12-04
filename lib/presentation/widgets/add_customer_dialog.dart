@@ -97,7 +97,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
                   maxLength: 16,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'لطفاً نام و نام خانوادگی را وارد کنید';
+                      return 'لطفا نام و نام خانوادگی را وارد کنید';
                     }
                     if (value.trim().length > 16) {
                       return 'نام نباید بیشتر از ۱۶ کاراکتر باشد';

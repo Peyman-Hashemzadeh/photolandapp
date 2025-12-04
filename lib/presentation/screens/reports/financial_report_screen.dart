@@ -240,8 +240,14 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
   }
 
   int? get _difference {
-    if (_totalIncome == null || _totalExpense == null) return null;
-    return _totalIncome! - _totalExpense!;
+    // اگر هیچ دیتایی نداریم، null برگردون
+    if (_totalIncome == null && _totalExpense == null) return null;
+
+    // در غیر این صورت، null ها رو به عنوان 0 در نظر بگیر
+    final income = _totalIncome ?? 0;
+    final expense = _totalExpense ?? 0;
+
+    return income - expense;
   }
 
   List<dynamic> get _filteredItems {
@@ -429,9 +435,19 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-            onPressed: () => Navigator.pop(context),
+          GestureDetector(
+            onTap: () {},
+            child: Container(
+              width: 44,
+              height: 44,
+              // decoration: BoxDecoration(
+              //   color: Colors.grey.shade300,
+              //   shape: BoxShape.circle,
+              // ),
+              // child: const Center(
+              //   child: FaIcon(FontAwesomeIcons.user, color: Colors.grey, size: 20),
+              // ),
+            ),
           ),
           const Text(
             'صورت حساب',
@@ -441,19 +457,9 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
               color: AppColors.textPrimary,
             ),
           ),
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: FaIcon(FontAwesomeIcons.user, color: Colors.grey, size: 20),
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.arrow_forward, color: AppColors.textPrimary),
+            onPressed: () => Navigator.pop(context),
           ),
         ],
       ),
@@ -466,33 +472,26 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
       child: Row(
         children: [
           GestureDetector(
-            onTap: _selectYear,
+            onTap: () {
+              setState(() {
+                _selectedDate = Jalali.now();
+              });
+              _loadData();
+              _scrollToSelectedMonth();
+            },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.primary,
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.arrow_drop_down, color: AppColors.primary, size: 20),
-                  const SizedBox(width: 4),
-                  Text(
-                    DateHelper.toPersianDigits(_selectedDate.year.toString()),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
+              child: const Text(
+                'ماه جاری',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
@@ -543,26 +542,33 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
           ),
           const Spacer(),
           GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedDate = Jalali.now();
-              });
-              _loadData();
-              _scrollToSelectedMonth();
-            },
+            onTap: _selectYear,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: AppColors.primary,
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              child: const Text(
-                'ماه جاری',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+              child: Row(
+                children: [
+                  Text(
+                    DateHelper.toPersianDigits(_selectedDate.year.toString()),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_drop_down, color: AppColors.primary, size: 20),
+                ],
               ),
             ),
           ),
@@ -660,7 +666,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          amount == null ? '---' : ServiceModel.formatNumber(amount),
+          amount == null ? '---' : DateHelper.toPersianDigits(ServiceModel.formatNumber(amount)),
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -915,31 +921,9 @@ class _InvoiceCardState extends State<_InvoiceCard> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween, // 🔥 فاصله بین دو طرف
                 children: [
-                  // آیکون وضعیت دریافتی (کلیک‌دار)
-                  GestureDetector(
-                    onTap: _showPaymentStatusDialog,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      child: isFullyPaid
-                          ? const Icon(Icons.check_circle, color: AppColors.success, size: 22)
-                          : hasDeposit
-                          ? const Icon(Icons.attach_money, color: AppColors.info, size: 22)
-                          : const SizedBox(width: 22),
-                    ),
-                  ),
-
-                  const SizedBox(width: 12),
-
-                  // تاریخ
-                  Text(
-                    DateHelper.dateTimeToShamsi(widget.invoice.invoiceDate),
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                  ),
-
-                  const Spacer(),
-
-                  // نام مشتری
+                  // بخش راست: نام مشتری (ثابت در سمت راست)
                   Flexible(
                     child: Text(
                       widget.invoice.customerName,
@@ -949,7 +933,38 @@ class _InvoiceCardState extends State<_InvoiceCard> {
                         color: AppColors.textPrimary,
                       ),
                       overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
                     ),
+                  ),
+
+                  const SizedBox(width: 12), // 🔥 فاصله بین دو بخش
+
+                  // بخش چپ: تاریخ + آیکون (ثابت در سمت چپ)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // تاریخ
+                      Text(
+                        DateHelper.formatPersianDate(Jalali.fromDateTime(widget.invoice.invoiceDate)),
+                        //DateHelper.toPersianDigits(DateHelper.dateTimeToShamsi(widget.invoice.invoiceDate)),
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      // آیکون وضعیت دریافتی (کلیک‌دار)
+                      GestureDetector(
+                        onTap: _showPaymentStatusDialog,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          child: isFullyPaid
+                              ? const Icon(Icons.check_circle, color: AppColors.success, size: 22)
+                              : hasDeposit
+                              ? const Icon(Icons.attach_money, color: AppColors.info, size: 22)
+                              : const SizedBox(width: 22),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -972,7 +987,7 @@ class _InvoiceCardState extends State<_InvoiceCard> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'جمع کل: ${ServiceModel.formatNumber(widget.grandTotal)}',
+                        'جمع کل: ${DateHelper.toPersianDigits(ServiceModel.formatNumber(widget.grandTotal))}',
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -981,12 +996,12 @@ class _InvoiceCardState extends State<_InvoiceCard> {
                       ),
                       Text(
                         'جمع اقلام: ${DateHelper.toPersianDigits(itemCount.toString())}',
-                        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                        style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
                       ),
                     ],
                   ),
 
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 20),
 
                   // 🔥 ردیف سوم: وضعیت
                   Align(
@@ -1011,7 +1026,7 @@ class _InvoiceCardState extends State<_InvoiceCard> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'وضعیت:',
+                            '',
                             style: TextStyle(
                               fontSize: 12,
                               color: statusColor,
@@ -1128,18 +1143,30 @@ class _ExpenseCardState extends State<_ExpenseCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    widget.expense.expenseName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    DateHelper.dateTimeToShamsi(widget.expense.documentDate),
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // عنوان هزینه - سمت راست
+                      Flexible(
+                        child: Text(
+                          widget.expense.expenseName,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+
+                      // تاریخ سند - سمت چپ
+                      Text(
+                        DateHelper.formatPersianDate(Jalali.fromDateTime(widget.expense.documentDate)),
+                        //DateHelper.toPersianDigits(DateHelper.dateTimeToShamsi(widget.expense.documentDate)),
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1160,23 +1187,23 @@ class _ExpenseCardState extends State<_ExpenseCard> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'از: ${widget.expense.paymentTypeLabel}',
-                        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                      ),
-                      Text(
-                        'مبلغ: ${ServiceModel.formatNumber(widget.expense.amount)}',
+                        'مبلغ: ${DateHelper.toPersianDigits(ServiceModel.formatNumber(widget.expense.amount))}',
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: AppColors.error,
                         ),
                       ),
+                      Text(
+                        ' ${widget.expense.paymentTypeLabel}',
+                        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                      ),
                     ],
                   ),
                   if (widget.expense.notes != null) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'توضیحات: ${widget.expense.notes}',
+                      '${widget.expense.notes}',
                       textAlign: TextAlign.right,
                       style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
@@ -1392,7 +1419,7 @@ class _EditExpenseDialogState extends State<_EditExpenseDialog> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedDate == null) {
-      SnackBarHelper.showError(context, 'لطفاً تاریخ سند را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا تاریخ سند را انتخاب کنید');
       return;
     }
 

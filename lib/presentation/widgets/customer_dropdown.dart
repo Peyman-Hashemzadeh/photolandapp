@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/colors.dart';
+import '../../../core/utils/date_helper.dart'; // برای toPersianDigits
 import '../../../data/models/customer_model.dart';
 
 class CustomerDropdown extends StatefulWidget {
@@ -20,42 +21,68 @@ class CustomerDropdown extends StatefulWidget {
   State<CustomerDropdown> createState() => _CustomerDropdownState();
 }
 
-class _CustomerDropdownState extends State<CustomerDropdown> {
+class _CustomerDropdownState extends State<CustomerDropdown>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
   List<CustomerModel> _filteredCustomers = [];
-  bool _isSearching = false;
 
   @override
   void initState() {
     super.initState();
     _filteredCustomers = widget.customers;
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+    _animationController.forward();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
   void _filterCustomers(String query) {
     setState(() {
+      List<CustomerModel> filtered = [];
       if (query.isEmpty) {
-        _filteredCustomers = widget.customers;
+        filtered = widget.customers;
       } else {
-        _filteredCustomers = widget.customers.where((customer) {
+        filtered = widget.customers.where((customer) {
           final nameLower = customer.fullName.toLowerCase();
           final mobile = customer.mobileNumber;
           final queryLower = query.toLowerCase();
-
           return nameLower.contains(queryLower) || mobile.contains(query);
         }).toList();
       }
+
+      // مشتری انتخاب‌شده رو همیشه اول بذار (اگر وجود داشته باشه)
+      if (widget.selectedCustomer != null &&
+          (query.isEmpty || filtered.any((c) => c.id == widget.selectedCustomer!.id))) {
+        filtered.removeWhere((c) => c.id == widget.selectedCustomer!.id); // حذف اگر تکراری
+        filtered.insert(0, widget.selectedCustomer!); // اول قرار بده
+      }
+
+      _filteredCustomers = filtered;
+      _animationController.forward();
     });
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    _filterCustomers('');
   }
 
   Future<void> _showSearchDialog() async {
     _searchController.clear();
-    _filteredCustomers = widget.customers;
+    _filterCustomers('');
 
     final selected = await showDialog<CustomerModel>(
       context: context,
@@ -64,24 +91,49 @@ class _CustomerDropdownState extends State<CustomerDropdown> {
           return Directionality(
             textDirection: TextDirection.rtl,
             child: AlertDialog(
-              title: const Text('انتخاب مشتری'),
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                'انتخاب مشتری',
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                ),
+              ),
               content: SizedBox(
-                width: double.maxFinite,
+                width: 400, // عرض محدود برای مینیمال
+                height: 400,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // فیلد جستجو
+                    // جستجو مینیمال
                     TextField(
                       controller: _searchController,
                       textAlign: TextAlign.right,
+                      style: const TextStyle(fontSize: 16),
                       decoration: InputDecoration(
-                        hintText: 'جستجو بر اساس نام یا شماره موبایل',
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,  // ← اضافه شد: برای white background
-                        fillColor: Colors.white,  // ← white برای dialog
+                        hintText: 'نام یا شماره همراه',
+                        hintStyle: TextStyle(color: Colors.grey.shade500),
+                        prefixIcon: Icon(Icons.search, color: AppColors.primary, size: 20),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                          icon: Icon(Icons.close, size: 20, color: Colors.grey.shade500),
+                          onPressed: _clearSearch,
+                        )
+                            : null,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
                         ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: AppColors.primary),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        isDense: true,
                       ),
                       onChanged: (value) {
                         setDialogState(() {
@@ -92,23 +144,75 @@ class _CustomerDropdownState extends State<CustomerDropdown> {
 
                     const SizedBox(height: 16),
 
-                    // لیست مشتریان
-                    Flexible(
-                      child: _filteredCustomers.isEmpty
-                          ? const Center(
-                        child: Text('مشتری یافت نشد'),
-                      )
-                          : ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _filteredCustomers.length,
-                        itemBuilder: (context, index) {
-                          final customer = _filteredCustomers[index];
-                          return ListTile(
-                            title: Text(customer.fullName),
-                            subtitle: Text(customer.mobileNumber),
-                            onTap: () => Navigator.pop(context, customer),
-                          );
-                        },
+                    // لیست مینیمال
+                    Expanded(
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: _filteredCustomers.isEmpty
+                            ? Center(
+                          child: Text(
+                            'مشتری یافت نشد.',
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 14,
+                            ),
+                          ),
+                        )
+                            : ListView.separated(
+                          padding: EdgeInsets.zero,
+                          itemCount: _filteredCustomers.length,
+                          separatorBuilder: (context, index) => Divider(
+                            height: 1,
+                            color: Colors.grey.shade200,
+                            thickness: 0.5,
+                          ),
+                          itemBuilder: (context, index) {
+                            final customer = _filteredCustomers[index];
+                            final isSelected = widget.selectedCustomer?.id == customer.id;
+                            return InkWell(
+                              onTap: () => Navigator.pop(context, customer),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                                color: isSelected ? Colors.grey.shade50 : null,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            customer.fullName,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6), // ← فاصله بیشتر
+                                          Text(
+                                            DateHelper.toPersianDigits(customer.mobileNumber), // ← اعداد فارسی
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.grey.shade600,
+                                              fontStyle: FontStyle.italic,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (isSelected)
+                                      Icon(
+                                        Icons.check_circle,
+                                        color: AppColors.primary,
+                                        size: 20,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ],
@@ -117,7 +221,10 @@ class _CustomerDropdownState extends State<CustomerDropdown> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('انصراف'),
+                  child: Text(
+                    'انصراف',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
                 ),
               ],
             ),
@@ -142,33 +249,40 @@ class _CustomerDropdownState extends State<CustomerDropdown> {
           children: [
             InkWell(
               onTap: _showSearchDialog,
+              borderRadius: BorderRadius.circular(8),
               child: Container(
+                width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 decoration: BoxDecoration(
-                  color: Colors.white,  // ← key: از grey[100] به white تغییر دادم
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
                   border: field.hasError
-                      ? Border.all(color: AppColors.error)
-                      : null,
+                      ? Border.all(color: AppColors.error, width: 1.5)
+                      : Border.all(color: Colors.transparent),
                 ),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(
-                      Icons.arrow_drop_down,
-                      color: AppColors.primary,
-                    ),
-                    const Spacer(),
-                    Text(
-                      widget.selectedCustomer?.fullName ?? 'انتخاب مشتری',
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: widget.selectedCustomer != null
-                            ? AppColors.textPrimary
-                            : AppColors.textLight,
+                    Expanded(
+                      child: Text(
+                        widget.selectedCustomer?.fullName ?? 'انتخاب مشتری',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: widget.selectedCustomer != null
+                              ? AppColors.textPrimary
+                              : Colors.grey.shade500,
+                          fontWeight: widget.selectedCustomer != null
+                              ? FontWeight.w500
+                              : FontWeight.normal,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.arrow_drop_down_rounded,
+                      color: field.hasError ? AppColors.error : AppColors.primary,
+                      size: 20,
+                    ),
                   ],
                 ),
               ),
@@ -176,11 +290,15 @@ class _CustomerDropdownState extends State<CustomerDropdown> {
             if (field.hasError)
               Padding(
                 padding: const EdgeInsets.only(top: 8, right: 16),
-                child: Text(
-                  field.errorText!,
-                  style: const TextStyle(
-                    color: AppColors.error,
-                    fontSize: 12,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    field.errorText!,
+                    style: TextStyle(
+                      color: AppColors.error,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),

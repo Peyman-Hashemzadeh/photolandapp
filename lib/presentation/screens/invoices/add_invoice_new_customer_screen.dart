@@ -159,7 +159,7 @@ class _NewCustomerDialogState extends State<_NewCustomerDialog> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedDate == null) {
-      SnackBarHelper.showError(context, 'لطفاً تاریخ سند را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا تاریخ سند را انتخاب کنید');
       return;
     }
 
@@ -200,7 +200,7 @@ class _NewCustomerDialogState extends State<_NewCustomerDialog> {
                   maxLength: 16,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'لطفاً نام و نام خانوادگی را وارد کنید';
+                      return 'لطفا نام و نام خانوادگی را وارد کنید';
                     }
                     return null;
                   },

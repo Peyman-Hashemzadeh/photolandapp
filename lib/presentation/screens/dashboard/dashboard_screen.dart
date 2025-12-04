@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -12,7 +13,9 @@ import '../calendar/calendar_screen.dart';
 import '../documents/document_menu_screen.dart';
 import '../reports/financial_report_screen.dart';
 import '../form_sharing/share_form_screen.dart';
+import '../profile/profile_screen.dart';
 import '../../../data/repositories/appointment_repository.dart';
+import '../reminders/reminders_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -25,6 +28,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String userName = 'کاربر';
   int receivedAppointmentsCount = 0;
   bool isLoading = true;
+  File? _profileImage;
+  String? _profileImagePath;
 
   @override
   void initState() {
@@ -33,21 +38,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadBadgeCount();
   }
 
+  // 🔥 بارگذاری داده‌های کاربر به صورت Realtime
   Future<void> _loadUserData() async {
     try {
       final user = FirebaseService.getCurrentUser();
       if (user != null) {
-        final doc = await FirebaseFirestore.instance
+        // 🔥 استفاده از snapshots برای Realtime
+        FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
-            .get();
+            .snapshots()
+            .listen((doc) {
+          if (doc.exists && mounted) {
+            setState(() {
+              userName = doc.data()?['fullName'] ?? 'کاربر';
+              _profileImagePath = doc.data()?['profileImagePath'];
 
-        if (doc.exists && mounted) {
-          setState(() {
-            userName = doc.data()?['fullName'] ?? 'کاربر';
-            isLoading = false;
-          });
-        }
+              // بارگذاری عکس پروفایل
+              if (_profileImagePath != null && _profileImagePath!.isNotEmpty) {
+                final file = File(_profileImagePath!);
+                if (file.existsSync()) {
+                  _profileImage = file;
+                } else {
+                  _profileImage = null;
+                }
+              } else {
+                _profileImage = null;
+              }
+
+              isLoading = false;
+            });
+          }
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -75,7 +97,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => Directionality(
-        textDirection: TextDirection.rtl, // 👈 راست‌چین کردن کل دیالوگ
+        textDirection: TextDirection.rtl,
         child: AlertDialog(
           title: const Text('خروج از حساب کاربری'),
           content: const Text('آیا برای خروج اطمینان دارید؟'),
@@ -110,10 +132,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-
+  // 🔥 رفتن به صفحه پروفایل
   void _navigateToProfile() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('صفحه پروفایل به زودی...')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ProfileScreen(),
+      ),
     );
   }
 
@@ -177,6 +202,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  void _navigateToReminders() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const RemindersScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -185,7 +219,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           image: DecorationImage(
             image: AssetImage('assets/images/background.png'),
             fit: BoxFit.cover,
-            opacity: 0.1, // شفافیت برای محو بودن
+            opacity: 0.1,
           ),
         ),
         child: SafeArea(
@@ -196,19 +230,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: Wrap(
-                    alignment: WrapAlignment.end, // راست‌چین
+                    alignment: WrapAlignment.end,
                     spacing: 16,
                     runSpacing: 16,
                     children: [
-                      // تقویم
-                      DashboardCard(
-                        title: 'تقویم',
-                        svgAsset: 'assets/images/icons/calendar.svg',
-                        backgroundColor: const Color(0xFF5CADD8),
-                        onTap: _navigateToCalendar,
-                      ),
-
-                      // ثبت نوبت
                       DashboardCard(
                         title: 'ثبت نوبت',
                         svgAsset: 'assets/images/icons/camera-clock.svg',
@@ -216,40 +241,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         badgeCount: receivedAppointmentsCount,
                         onTap: _navigateToAppointments,
                       ),
-
-                      // صورت حساب‌ها
                       DashboardCard(
-                        title: 'صورت حسابها',
-                        svgAsset: 'assets/images/icons/sheet-plastic.svg',
-                        backgroundColor: const Color(0xFFE89CC2),
-                        onTap: _navigateToInvoicesList,
+                        title: 'تقویم',
+                        svgAsset: 'assets/images/icons/calendar.svg',
+                        backgroundColor: const Color(0xFF5CADD8),
+                        onTap: _navigateToCalendar,
                       ),
-
-                      // صدور سند
                       DashboardCard(
                         title: 'صدور سند',
                         svgAsset: 'assets/images/icons/file-invoice-dollar.svg',
                         backgroundColor: const Color(0xFFFF9F6E),
                         onTap: _navigateToInvoice,
                       ),
-
-                      // اطلاعات پایه
                       DashboardCard(
-                        title: 'اطلاعات پایه',
-                        svgAsset: 'assets/images/icons/gear-complex.svg',
-                        backgroundColor: const Color(0xFF8BA3D8),
-                        onTap: _navigateToBaseData,
+                        title: 'صورت حسابها',
+                        svgAsset: 'assets/images/icons/sheet-plastic.svg',
+                        backgroundColor: const Color(0xFFE89CC2),
+                        onTap: _navigateToInvoicesList,
                       ),
-
-                      // ارسال فرم
                       DashboardCard(
                         title: 'ارسال فرم',
                         svgAsset: 'assets/images/icons/link-horizontal.svg',
                         backgroundColor: const Color(0xFF7DD8B8),
                         onTap: _navigateToFormSharing,
                       ),
-
-                      // گزارشات
+                      DashboardCard(
+                        title: 'اطلاعات پایه',
+                        svgAsset: 'assets/images/icons/gear-complex.svg',
+                        backgroundColor: const Color(0xFF8BA3D8),
+                        onTap: _navigateToBaseData,
+                      ),
+                      DashboardCard(
+                        title: 'یادآوری',
+                        svgAsset: 'assets/images/icons/bell.svg',
+                        backgroundColor: const Color(0xFFFFC107),
+                        onTap: _navigateToReminders,
+                      ),
                       DashboardCard(
                         title: 'گزارشات',
                         svgAsset: 'assets/images/icons/chart-line.svg',
@@ -273,15 +300,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // آیکون خروج
-          IconButton(
-            icon: const FaIcon(
-              FontAwesomeIcons.powerOff,
-              color: Colors.black87,
-              size: 20,
+          // 🔥 آیکون پروفایل با عکس
+          GestureDetector(
+            onTap: _navigateToProfile,
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                shape: BoxShape.circle,
+              ),
+              child: ClipOval(
+                child: _profileImage != null && _profileImage!.existsSync()
+                    ? Image.file(
+                  _profileImage!,
+                  fit: BoxFit.cover,
+                )
+                    : const Center(
+                  child: FaIcon(
+                    FontAwesomeIcons.user,
+                    color: Colors.grey,
+                    size: 20,
+                  ),
+                ),
+              ),
             ),
-            onPressed: _handleLogout,
-            tooltip: 'خروج',
           ),
 
           // نام کاربر
@@ -296,24 +339,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
-          // آیکون پروفایل در دایره طوسی
-          GestureDetector(
-            onTap: _navigateToProfile,
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: FaIcon(
-                  FontAwesomeIcons.user,
-                  color: Colors.grey,
-                  size: 20,
-                ),
-              ),
+          // آیکون خروج
+          IconButton(
+            icon: const FaIcon(
+              FontAwesomeIcons.powerOff,
+              color: Colors.black87,
+              size: 20,
             ),
+            onPressed: _handleLogout,
+            tooltip: 'خروج',
           ),
         ],
       ),

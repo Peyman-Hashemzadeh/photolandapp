@@ -143,17 +143,17 @@ class _EditReceivedAppointmentScreenState
     }
 
     if (_selectedDate == null) {
-      SnackBarHelper.showError(context, 'لطفاً تاریخ درخواستی را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا تاریخ درخواستی را انتخاب کنید');
       return;
     }
 
     if (_timeController.text.isEmpty) {
-      SnackBarHelper.showError(context, 'لطفاً ساعت درخواستی را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا ساعت درخواستی را انتخاب کنید');
       return;
     }
 
     if (_selectedDuration == null) {
-      SnackBarHelper.showError(context, 'لطفاً مدت رزرو را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا مدت رزرو را انتخاب کنید');
       return;
     }
 
@@ -216,7 +216,7 @@ class _EditReceivedAppointmentScreenState
 
       if (!mounted) return;
 
-      SnackBarHelper.showSuccess(context, 'نوبت با موفقیت ویرایش شد');
+      SnackBarHelper.showSuccess(context, 'نوبت با موفقیت ویرایش شد.');
       Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
@@ -240,7 +240,7 @@ class _EditReceivedAppointmentScreenState
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('در این بازه زمانی رزرو دیگری وجود دارد:'),
+              const Text('در این بازه زمانی رزرو دیگری وجود دارد.'),
               const SizedBox(height: 12),
               ...overlapping.map((apt) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -345,15 +345,15 @@ class _EditReceivedAppointmentScreenState
                         // 🔥 فیلد نام مشتری (Label)
                         Container(
                           padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: customerLabelColor.withOpacity(0.3),
-                              width: 2,
-                            ),
-                            boxShadow: [_getFieldShadow()],
-                          ),
+                         //decoration: BoxDecoration(
+                         //  color: Colors.white,
+                         //  borderRadius: BorderRadius.circular(12),
+                         //  border: Border.all(
+                         //    color: customerLabelColor.withOpacity(0.3),
+                         //    width: 2,
+                         //  ),
+                         //  boxShadow: [_getFieldShadow()],
+                         //),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -367,7 +367,7 @@ class _EditReceivedAppointmentScreenState
                               Text(
                                 customerLabel,
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.bold,
                                   color: customerLabelColor,
                                 ),
@@ -376,17 +376,17 @@ class _EditReceivedAppointmentScreenState
                           ),
                         ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 4),
 
                         // 🔥 نام و نام خانوادگی ثبت شده توسط مشتری
                         Container(
                           padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                            boxShadow: [_getFieldShadow()],
-                          ),
+                         // decoration: BoxDecoration(
+                         //   color: Colors.grey.shade50,
+                         //   borderRadius: BorderRadius.circular(12),
+                         //   border: Border.all(color: Colors.grey.shade300),
+                         //   boxShadow: [_getFieldShadow()],
+                         // ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -401,7 +401,7 @@ class _EditReceivedAppointmentScreenState
                                 widget.appointment.customerName,
                                 style: const TextStyle(
                                   fontSize: 15,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
                                   color: AppColors.textPrimary,
                                 ),
                               ),
@@ -409,17 +409,17 @@ class _EditReceivedAppointmentScreenState
                           ),
                         ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 4),
 
                         // 🔥 شماره همراه ثبت شده توسط مشتری
                         Container(
                           padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                            boxShadow: [_getFieldShadow()],
-                          ),
+                          //decoration: BoxDecoration(
+                          //  color: Colors.grey.shade50,
+                          //  borderRadius: BorderRadius.circular(12),
+                          //  border: Border.all(color: Colors.grey.shade300),
+                          //  boxShadow: [_getFieldShadow()],
+                          //),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -469,57 +469,54 @@ class _EditReceivedAppointmentScreenState
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [_getFieldShadow()],
                           ),
-                          child: FormField<Jalali?>(
+                          child: FormField<Jalali?>(  // ← FormField جدید برای date
                             initialValue: _selectedDate,
-                            autovalidateMode: AutovalidateMode.onUserInteraction,
+                            autovalidateMode: AutovalidateMode.onUserInteraction,  // پاک شدن خودکار error
                             validator: (date) {
                               if (date == null) {
-                                return 'لطفاً تاریخ درخواستی را انتخاب کنید';
+                                return 'لطفا تاریخ درخواستی را انتخاب کنید!';  // اجباری
                               }
                               return null;
                             },
                             builder: (field) {
-                              return Column(
+                              return Column(  // error message زیر فیلد
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   InkWell(
                                     onTap: () {
                                       _selectDate().then((_) {
-                                        field.didChange(_selectedDate);
+                                        field.didChange(_selectedDate);  // trigger validator بعد از select
                                       });
                                     },
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 16, vertical: 16),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                                       child: Row(
                                         children: [
-                                          const Icon(Icons.arrow_drop_down,
-                                              color: AppColors.primary),
-                                          const Spacer(),
                                           Text(
-                                            DateHelper.formatPersianDate(
-                                                _selectedDate),
+                                            DateHelper.formatPersianDate(_selectedDate),  // ← جدید: استفاده از helper (اعداد فارسی می‌شن)
                                             textAlign: TextAlign.right,
                                             style: TextStyle(
                                               fontSize: 14,
-                                              color: _selectedDate != null
-                                                  ? AppColors.textPrimary
-                                                  : AppColors.textLight,
-                                              fontFamily: 'Vazirmatn',
+                                              color: _selectedDate != null ? AppColors.textPrimary : AppColors.textLight,
+                                              fontFamily: 'Vazirmatn',  // force فونت برای smoothness
                                             ),
                                           ),
+                                          const Spacer(),
+                                          // در Text داخل InkWell (بخش builder FormField)
+                                          // const Icon(Icons.calendar_today_rounded, color: AppColors.primary),
                                         ],
                                       ),
                                     ),
                                   ),
                                   if (field.hasError)
                                     Padding(
-                                      padding: const EdgeInsets.only(
-                                          top: 8, right: 16),
-                                      child: Text(
-                                        field.errorText!,
-                                        style: const TextStyle(
-                                            color: AppColors.error, fontSize: 12),
+                                      padding: const EdgeInsets.only(top: 8, right: 16, bottom: 8),
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Text(
+                                          field.errorText!,
+                                          style: const TextStyle(color: AppColors.error, fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                 ],
@@ -542,7 +539,7 @@ class _EditReceivedAppointmentScreenState
                             autovalidateMode: AutovalidateMode.onUserInteraction,
                             validator: (time) {
                               if (time == null || time.isEmpty) {
-                                return 'لطفاً ساعت درخواستی را انتخاب کنید';
+                                return 'لطفا ساعت درخواستی را انتخاب کنید!';
                               }
                               return null;
                             },
@@ -557,38 +554,35 @@ class _EditReceivedAppointmentScreenState
                                       });
                                     },
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 16, vertical: 16),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                                       child: Row(
                                         children: [
-                                          const Icon(Icons.arrow_drop_down,
-                                              color: AppColors.primary),
-                                          const Spacer(),
                                           Text(
                                             _timeController.text.isEmpty
                                                 ? 'ساعت درخواستی'
-                                                : _timeController.text,
+                                                : DateHelper.toPersianDigits(_timeController.text), // 👈 تبدیل به فارسی
                                             textAlign: TextAlign.right,
                                             style: TextStyle(
                                               fontSize: 14,
-                                              color: _timeController
-                                                  .text.isNotEmpty
+                                              color: _timeController.text.isNotEmpty
                                                   ? AppColors.textPrimary
                                                   : AppColors.textLight,
                                             ),
                                           ),
+                                          const Spacer(),
+                                          // const Icon(Icons.timer_outlined, color: AppColors.primary),
                                         ],
                                       ),
                                     ),
                                   ),
                                   if (field.hasError)
                                     Padding(
-                                      padding: const EdgeInsets.only(
-                                          top: 8, right: 16),
-                                      child: Text(
-                                        field.errorText!,
-                                        style: const TextStyle(
-                                            color: AppColors.error, fontSize: 12),
+                                      padding: const EdgeInsets.only(top: 8, right: 16, bottom: 8),
+                                      child: Align(alignment: Alignment.centerRight,
+                                        child: Text(
+                                          field.errorText!,
+                                          style: const TextStyle(color: AppColors.error, fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                 ],
@@ -611,7 +605,7 @@ class _EditReceivedAppointmentScreenState
                             autovalidateMode: AutovalidateMode.onUserInteraction,
                             validator: (duration) {
                               if (duration == null) {
-                                return 'لطفاً مدت رزرو را انتخاب کنید';
+                                return 'لطفا مدت رزرو را انتخاب کنید';
                               }
                               return null;
                             },
@@ -705,6 +699,15 @@ class _EditReceivedAppointmentScreenState
                         Row(
                           children: [
                             Expanded(
+                              child: CustomButton(
+                                text: 'ذخیره تغییرات',
+                                onPressed: _handleSave,
+                                isLoading: _isLoading,
+                                useGradient: true,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
                               child: OutlinedButton(
                                 onPressed: _handleCancel,
                                 style: OutlinedButton.styleFrom(
@@ -717,15 +720,6 @@ class _EditReceivedAppointmentScreenState
                                   ),
                                 ),
                                 child: const Text('انصراف'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: CustomButton(
-                                text: 'ذخیره تغییرات',
-                                onPressed: _handleSave,
-                                isLoading: _isLoading,
-                                useGradient: true,
                               ),
                             ),
                           ],
@@ -748,9 +742,23 @@ class _EditReceivedAppointmentScreenState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-            onPressed: _handleCancel,
+          GestureDetector(
+            onTap: () {},
+            child: Container(
+              width: 44,
+              height: 44,
+              // decoration: BoxDecoration(
+              //   color: Colors.grey.shade300,
+              //   shape: BoxShape.circle,
+              // ),
+              // child: const Center(
+              //   child: FaIcon(
+              //     FontAwesomeIcons.user,
+              //     color: Colors.grey,
+              //     size: 20,
+              //   ),
+              // ),
+            ),
           ),
           const Text(
             'ویرایش نوبت دریافتی',
@@ -760,23 +768,9 @@ class _EditReceivedAppointmentScreenState
               color: AppColors.textPrimary,
             ),
           ),
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: FaIcon(
-                  FontAwesomeIcons.user,
-                  color: Colors.grey,
-                  size: 20,
-                ),
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.arrow_forward, color: AppColors.textPrimary),
+            onPressed: _handleCancel,
           ),
         ],
       ),

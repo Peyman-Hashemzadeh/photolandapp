@@ -6,8 +6,10 @@ import '../../../core/utils/snackbar_helper.dart';
 import '../../../services/firebase_service.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/custom_button.dart';
+import '../../widgets/curved_header.dart'; // 🔥 اضافه شد
 import '../dashboard/dashboard_screen.dart';
 import 'register_screen.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -53,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
           duration: Duration(seconds: 2),
           content: Text(
             'به مدیریت خدمات فتولند خوش آمدید',
-            textAlign: TextAlign.right, // راست‌چین کردن متن
+            textAlign: TextAlign.right,
           ),
         ),
       );
@@ -61,6 +63,14 @@ class _LoginScreenState extends State<LoginScreen> {
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (!mounted) return;
+      await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      final studioCode = user.studioCode;
+      await FirebaseMessaging.instance.subscribeToTopic("studio_$studioCode");
 
       Navigator.pushReplacement(
         context,
@@ -70,8 +80,10 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      SnackBarHelper.showError(context, e.toString().replaceAll('Exception: ', ''));
-
+      SnackBarHelper.showError(
+        context,
+        e.toString().replaceAll('Exception: ', ''),
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -97,39 +109,20 @@ class _LoginScreenState extends State<LoginScreen> {
             key: _formKey,
             child: Column(
               children: [
-                // تصویر هدر
-                Image.asset(
-                  'assets/images/auth_header.png',
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  height: 120,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: double.infinity,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppColors.primary.withOpacity(0.7),
-                            AppColors.primaryLight,
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                // فاصله بین هدر و لوگو
-                const SizedBox(height: 30),
+                // 🔥 هدر جدید با CustomPaint
+                const CurvedHeader(height: 180),
+
+                const SizedBox(height: 1),
+
                 // محتوای فرم
                 Padding(
-                  padding: const EdgeInsets.all(30),
+                  padding: const EdgeInsets.all(10),
                   child: Column(
                     children: [
                       // لوگو
                       Image.asset(
                         'assets/images/logo.png',
-
-                        height: 70,
+                        height: 60,
                         errorBuilder: (context, error, stackTrace) {
                           return const Icon(
                             Icons.camera_alt,
@@ -139,15 +132,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       ),
 
-                      //const SizedBox(height: 40),
-
-
-
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 15),
 
                       // زیرعنوان
                       const Text(
-                        '.برای ورود اطلاعات خود را وارد کنید',
+                        'برای ورود اطلاعات خود را وارد کنید.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,
@@ -202,24 +191,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         isLoading: _isLoading,
                       ),
 
-                      const SizedBox(height: 24),
-                      // فاصله بین کلید ور.د و لینک ثبت نام
-                      const SizedBox(height: 160),
+                      const SizedBox(height: 240),
+
                       // لینک ثبت‌نام
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          TextButton(
-                            onPressed: _navigateToRegister,
-                            child: const Text(
-                              '!ثبت‌نام کنید',
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
                           const Text(
                             'حساب کاربری ندارید؟',
                             style: TextStyle(
@@ -227,7 +204,18 @@ class _LoginScreenState extends State<LoginScreen> {
                               fontSize: 14,
                             ),
                           ),
-                      ],
+                          TextButton(
+                            onPressed: _navigateToRegister,
+                            child: const Text(
+                              'ثبت ‌نام کنید!',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

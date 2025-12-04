@@ -104,7 +104,7 @@ class _AddBankDialogState extends State<AddBankDialog> {
                   maxLength: 32,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'لطفاً نام بانک را وارد کنید';
+                      return 'لطفا نام بانک را وارد کنید';
                     }
                     if (value.trim().length > 32) {
                       return 'نام بانک نباید بیشتر از ۳۲ کاراکتر باشد';
