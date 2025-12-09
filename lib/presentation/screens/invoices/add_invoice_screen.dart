@@ -335,7 +335,7 @@ class _InitialDialogState extends State<_InitialDialog> {
                               : AppColors.textLight,
                         ),
                       ),
-                    //  const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                    //  const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary),
                     ],
                   ),
                 ),
@@ -464,8 +464,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         _invoice = invoice;
         _isLoading = false;
       });
-
-      // بارگذاری آیتم‌های فاکتور
+      // ✅ بارگذاری آیتم‌های فاکتور (برای هر دو حالت)
       _invoiceRepository.getInvoiceItems(_invoice!.id).listen((items) {
         if (mounted) {
           setState(() {
@@ -475,14 +474,16 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         }
       });
 
-      // 🔥 بارگذاری دریافتی‌های این فاکتور
-      _paymentRepository.getPaymentsByAppointment(_invoice!.id).listen((payments) {
+      // بارگذاری آیتم‌های فاکتور
+      final appointmentId = _invoice!.appointmentId ?? _invoice!.id;
+      _paymentRepository.getPaymentsByAppointment(appointmentId).listen((payments) {
         if (mounted) {
           setState(() {
             _paidAmount = payments.fold(0, (sum, payment) => sum + payment.amount);
           });
         }
       });
+
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -635,6 +636,49 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     }
   }
 
+  Future<void> _handleBack() async {
+    // 🔥 چک کنیم آیا فاکتور خالیه (نه آیتم داره نه پرداخت)
+    if (_invoice != null && _items.isEmpty && _paidAmount == 0) {
+      // فاکتور خالیه، پس حذفش می‌کنیم
+      try {
+        await _invoiceRepository.deleteInvoice(_invoice!.id);
+      } catch (e) {
+        // در صورت خطا، فقط لاگ می‌کنیم و ادامه میدیم
+        debugPrint('خطا در حذف فاکتور خالی: $e');
+      }
+
+      // بدون تاییدیه برمی‌گردیم
+      if (mounted) {
+        Navigator.pop(context);
+      }
+      return;
+    }
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('بازگشت'),
+          content: const Text('آیا از بازگشت به تقویم اطمینان دارید؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('بله'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('خیر'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -694,7 +738,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.arrow_forward, color: AppColors.textPrimary),
-            onPressed: () => Navigator.pop(context),
+            onPressed: _handleBack,
           ),
         ],
       ),
@@ -1288,7 +1332,7 @@ class _AddItemDialogState extends State<_AddItemDialog> {
                     child: DropdownButton<ServiceModel>(
                       value: _selectedService,
                       isExpanded: true,
-                      icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                      icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary),
                       hint: const Text('انتخاب خدمت', textAlign: TextAlign.right),
                       items: widget.services.map((service) {
                         return DropdownMenuItem(
@@ -1339,7 +1383,7 @@ class _AddItemDialogState extends State<_AddItemDialog> {
                   ],
                   decoration: InputDecoration(
                     hintText: 'مبلغ واحد',
-                    suffixText: 'ریال',
+                    suffixText: 'تومان',
                     suffixStyle: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 14,
@@ -1482,8 +1526,8 @@ class _DetailsDialogState extends State<_DetailsDialog> {
                   decoration: InputDecoration(
                     hintText: 'هزینه ارسال',
 
-                    // نمایش "ریال" سمت چپ فیلد
-                    suffixText: 'ریال',
+                    // نمایش "تومان" سمت چپ فیلد
+                    suffixText: 'تومان',
                     suffixStyle: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 14,
@@ -1510,8 +1554,8 @@ class _DetailsDialogState extends State<_DetailsDialog> {
                   decoration: InputDecoration(
                     hintText: 'تخفیف',
 
-                    // نمایش "ریال" سمت چپ فیلد
-                    suffixText: 'ریال',
+                    // نمایش "تومان" سمت چپ فیلد
+                    suffixText: 'تومان',
                     suffixStyle: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 14,

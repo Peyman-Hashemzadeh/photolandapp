@@ -92,6 +92,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
     }
   }
 
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
@@ -165,16 +166,34 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
   }
 
   // 🔥 بارگذاری جزئیات یک فاکتور
+  // پیدا کن خط 176-191 در _loadInvoiceDetails و جایگزین کن:
+
   Future<void> _loadInvoiceDetails(InvoiceModel invoice) async {
     try {
-      // 🔥 بارگذاری موازی payments, total, items
+      // 🔥 بارگذاری موازی payments (هم از appointmentId و هم از invoiceId)
+      final paymentsFromAppointment = invoice.appointmentId != null
+          ? await _paymentRepository.getPaymentsByAppointment(invoice.appointmentId!).first
+          : <PaymentModel>[];
+
+      final paymentsFromInvoice = await _paymentRepository.getPaymentsByInvoice(invoice.id).first;
+
+      // 🔥 ترکیب و حذف تکراری (بر اساس payment.id)
+      final allPaymentsMap = <String, PaymentModel>{};
+      for (var p in paymentsFromAppointment) {
+        allPaymentsMap[p.id] = p;
+      }
+      for (var p in paymentsFromInvoice) {
+        allPaymentsMap[p.id] = p;
+      }
+
+      final payments = allPaymentsMap.values.toList();
+
       final results = await Future.wait([
-        _paymentRepository.getPaymentsByAppointment(invoice.id).first,
+        Future.value(payments), // استفاده از payments ترکیب شده
         _invoiceRepository.calculateGrandTotal(invoice.id),
         _invoiceRepository.getInvoiceItems(invoice.id).first,
       ]);
 
-      final payments = results[0] as List<PaymentModel>;
       final total = results[1] as int;
       final items = results[2] as List<InvoiceItem>;
 
@@ -512,7 +531,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
             child: DropdownButtonHideUnderline(
               child: DropdownButton<ReportFilter>(
                 value: _currentFilter,
-                icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary, size: 20),
+                icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary, size: 20),
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -567,7 +586,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.arrow_drop_down, color: AppColors.primary, size: 20),
+                  const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary, size: 20),
                 ],
               ),
             ),
@@ -782,24 +801,24 @@ class _InvoiceCardState extends State<_InvoiceCard> {
   bool _isExpanded = false;
 
   void _showPaymentStatusDialog() {
-    final hasDeposit = widget.paidAmount > 0 && widget.paidAmount < widget.grandTotal;
-    final isFullyPaid = widget.paidAmount >= widget.grandTotal;
+    final hasDeposit = widget.payments.any((p) => p.type == 'deposit');
+    final hasSettlement = widget.payments.any((p) => p.type == 'settlement');
+
+    final showDepositIcon = hasDeposit && !hasSettlement;
+    final showSettledIcon = widget.paidAmount >= widget.grandTotal && widget.grandTotal > 0;
 
     String message;
-    if (isFullyPaid) {
+    if (showSettledIcon) {
       final lastPayment = widget.payments.isNotEmpty ? widget.payments.first : null;
       final lastDate = lastPayment != null
           ? DateHelper.dateTimeToShamsi(lastPayment.paymentDate)
           : 'نامشخص';
       message = 'در تاریخ $lastDate فاکتور تسویه شده است.';
-    } else if (hasDeposit) {
-      final depositPayment = widget.payments.firstWhere(
-            (p) => p.type == 'deposit',
-        orElse: () => widget.payments.first,
-      );
+    } else if (showDepositIcon) {
+      final depositPayment = widget.payments.firstWhere((p) => p.type == 'deposit');
       final depositDate = DateHelper.dateTimeToShamsi(depositPayment.paymentDate);
       final depositAmount = ServiceModel.formatNumber(depositPayment.amount);
-      message = 'مشتری در تاریخ $depositDate مبلغ $depositAmount ریال پرداخت کرده است ولی هنوز فاکتور تسویه نشده است.';
+      message = 'مشتری در تاریخ $depositDate مبلغ $depositAmount تومان بیعانه پرداخت کرده است ولی هنوز تسویه نشده است.';
     } else {
       message = 'هیچ دریافتی ثبت نشده است.';
     }
@@ -857,9 +876,20 @@ class _InvoiceCardState extends State<_InvoiceCard> {
 
   @override
   Widget build(BuildContext context) {
-    final hasDeposit = widget.paidAmount > 0 && widget.paidAmount < widget.grandTotal;
-    final isFullyPaid = widget.paidAmount >= widget.grandTotal;
+    // 🔥 لاجیک جدید برای تشخیص بیعانه/تسویه
+    final hasDeposit = widget.payments.any((p) => p.type == 'deposit');
+    final hasSettlement = widget.payments.any((p) => p.type == 'settlement');
+
+    // 🔥 شرط جدید برای آیکون بیعانه:
+    // فقط بیعانه داره و هنوز تسویه نشده
+    final showDepositIcon = hasDeposit && !hasSettlement;
+
+    // 🔥 شرط جدید برای آیکون تسویه:
+    // پرداختی >= جمع کل و جمع کل > 0
+    final showSettledIcon = widget.paidAmount >= widget.grandTotal && widget.grandTotal > 0;
+
     final itemCount = widget.items.fold<int>(0, (sum, item) => sum + item.quantity);
+
 
     // 🔥 گرفتن label وضعیت
     String statusLabel = 'بدون وضعیت';
@@ -957,7 +987,7 @@ class _InvoiceCardState extends State<_InvoiceCard> {
                         onTap: _showPaymentStatusDialog,
                         child: Container(
                           padding: const EdgeInsets.all(4),
-                          child: isFullyPaid
+                          child: showSettledIcon
                               ? const Icon(Icons.check_circle, color: AppColors.success, size: 22)
                               : hasDeposit
                               ? const Icon(Icons.attach_money, color: AppColors.info, size: 22)
@@ -1307,7 +1337,7 @@ class _ChangeStatusDialogState extends State<_ChangeStatusDialog> {
                 child: DropdownButton<InvoiceStatus>(
                   value: _selectedStatus,
                   isExpanded: true,
-                  icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                  icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary),
                   hint: const Text('انتخاب وضعیت', textAlign: TextAlign.right),
                   items: InvoiceStatus.values.map((status) {
                     return DropdownMenuItem(
@@ -1497,7 +1527,7 @@ class _EditExpenseDialogState extends State<_EditExpenseDialog> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                        const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary),
                         Text(
                           _selectedDate != null
                               ? DateHelper.formatPersianDate(_selectedDate!)
@@ -1524,7 +1554,7 @@ class _EditExpenseDialogState extends State<_EditExpenseDialog> {
                   inputFormatters: [PriceInputFormatter()],
                   decoration: InputDecoration(
                     hintText: 'مبلغ هزینه',
-                    prefixText: 'ریال',
+                    prefixText: 'تومان',
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(

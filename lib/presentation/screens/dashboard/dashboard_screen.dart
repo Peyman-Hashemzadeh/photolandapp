@@ -16,6 +16,8 @@ import '../form_sharing/share_form_screen.dart';
 import '../profile/profile_screen.dart';
 import '../../../data/repositories/appointment_repository.dart';
 import '../reminders/reminders_screen.dart';
+import '../reports/reports_screen.dart';
+
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -197,8 +199,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _navigateToReports() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('صفحه گزارشات به زودی...')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ReportsScreen(),
+      ),
     );
   }
 

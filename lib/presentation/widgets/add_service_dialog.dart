@@ -4,6 +4,7 @@ import '../../../core/utils/price_input_formatter.dart';
 import '../../../data/models/service_model.dart';
 import 'custom_textfield.dart';
 import 'custom_button.dart';
+import '../../core/utils/date_helper.dart';
 
 class AddServiceDialog extends StatefulWidget {
   final ServiceModel? service; // اگه null باشه یعنی افزودن، وگرنه ویرایش
@@ -27,7 +28,9 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
     super.initState();
     _nameController = TextEditingController(text: widget.service?.serviceName ?? '');
     _priceController = TextEditingController(
-      text: widget.service?.formattedPrice ?? '',
+      text: widget.service != null
+          ? DateHelper.toPersianDigits(widget.service!.formattedPrice ?? '') // ← تبدیل به فارسی
+          : '',
     );
   }
 
@@ -92,10 +95,10 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
                   maxLength: 32,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'لطفا عنوان خدمت را وارد کنید';
+                      return 'لطفا عنوان خدمت را وارد کنید.';
                     }
                     if (value.trim().length > 32) {
-                      return 'عنوان خدمت نباید بیشتر از ۳۲ کاراکتر باشد';
+                      return 'عنوان خدمت نباید بیشتر از ۳۲ کاراکتر باشد.';
                     }
                     return null;
                   },
@@ -109,7 +112,7 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
                   textAlign: TextAlign.right,
                   keyboardType: TextInputType.number,
                   inputFormatters: [
-                    PriceInputFormatter(),
+                    PersianPriceInputFormatter(), // ← formatter فارسی (جایگزین PriceInputFormatter)
                   ],
                   decoration: InputDecoration(
                     hintText: 'مبلغ خدمت (اختیاری)',
@@ -117,7 +120,7 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
                       color: AppColors.textLight,
                       fontSize: 14,
                     ),
-                   // suffixText: 'ریال',
+                    suffixText: 'تومان',
                     suffixStyle: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 14,
@@ -159,6 +162,17 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
                 // دکمه‌ها
                 Row(
                   children: [
+                    // دکمه ثبت
+                    Expanded(
+                      child: CustomButton(
+                        text: isEditing ? 'ویرایش' : 'ثبت',
+                        onPressed: _handleSubmit,
+                        useGradient: true,
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+
                     // دکمه انصراف
                     Expanded(
                       child: OutlinedButton(
@@ -172,17 +186,6 @@ class _AddServiceDialogState extends State<AddServiceDialog> {
                           ),
                         ),
                         child: const Text('انصراف'),
-                      ),
-                    ),
-
-                    const SizedBox(width: 12),
-
-                    // دکمه ثبت
-                    Expanded(
-                      child: CustomButton(
-                        text: isEditing ? 'ویرایش' : 'ثبت',
-                        onPressed: _handleSubmit,
-                        useGradient: true,
                       ),
                     ),
                   ],

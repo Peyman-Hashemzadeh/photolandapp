@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class PaymentModel {
   final String id;
   final String appointmentId; // ارجاع به نوبت
+  final String? invoiceId;
   final int amount; // مبلغ دریافتی
   final String type; // 'deposit' (بیعانه) یا 'settlement' (تسویه)
   final DateTime paymentDate; // تاریخ دریافت
@@ -16,6 +17,7 @@ class PaymentModel {
   PaymentModel({
     required this.id,
     required this.appointmentId,
+    this.invoiceId,
     required this.amount,
     required this.type,
     required this.paymentDate,
@@ -53,6 +55,7 @@ class PaymentModel {
     return PaymentModel(
       id: id,
       appointmentId: map['appointmentId'] ?? '',
+      invoiceId: map['invoiceId'],
       amount: map['amount'] ?? 0,
       type: map['type'] ?? 'settlement',
       paymentDate: (map['paymentDate'] as Timestamp).toDate(),
@@ -71,6 +74,7 @@ class PaymentModel {
   Map<String, dynamic> toMap() {
     return {
       'appointmentId': appointmentId,
+      'invoiceId': invoiceId,
       'amount': amount,
       'type': type,
       'paymentDate': Timestamp.fromDate(paymentDate),
@@ -87,6 +91,7 @@ class PaymentModel {
   PaymentModel copyWith({
     String? id,
     String? appointmentId,
+    String? invoiceId,
     int? amount,
     String? type,
     DateTime? paymentDate,
@@ -100,6 +105,7 @@ class PaymentModel {
     return PaymentModel(
       id: id ?? this.id,
       appointmentId: appointmentId ?? this.appointmentId,
+      invoiceId: invoiceId ?? this.invoiceId,
       amount: amount ?? this.amount,
       type: type ?? this.type,
       paymentDate: paymentDate ?? this.paymentDate,

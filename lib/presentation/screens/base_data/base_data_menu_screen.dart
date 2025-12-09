@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/colors.dart';
-import '../../widgets/dashboard_card.dart';
 import 'customers_screen.dart';
 import 'banks_screen.dart';
 import 'services_screen.dart';
@@ -19,7 +19,7 @@ class BaseDataMenuScreen extends StatelessWidget {
           image: DecorationImage(
             image: const AssetImage('assets/images/background.png'),
             fit: BoxFit.cover,
-            opacity: 0.1,
+            opacity: 0.05,
           ),
         ),
         child: SafeArea(
@@ -28,20 +28,50 @@ class BaseDataMenuScreen extends StatelessWidget {
               _buildHeader(context),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
                       // ردیف اول: مشتری و خدمت
                       Row(
                         children: [
-                          // تعریف خدمت
                           Expanded(
-                            child: _buildServiceCard(context),
+                            child: _buildModernCard(
+                              context: context,
+                              title: 'تعریف مشتری',
+                              subtitle: 'مدیریت مشتریان',
+                              svgAsset: 'assets/images/icons/user-circle-plus.svg',
+                              gradientColors: [
+                                Color(0xFF4FC3F7),
+                                Color(0xFF2196F3),
+                              ],
+                              collection: 'customers',
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const CustomersScreen(),
+                                ),
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 16),
-                          // تعریف مشتری
                           Expanded(
-                            child: _buildCustomerCard(context),
+                            child: _buildModernCard(
+                              context: context,
+                              title: 'تعریف خدمت',
+                              subtitle: 'مدیریت خدمات',
+                              svgAsset: 'assets/images/icons/bag-shopping.svg',
+                              gradientColors: [
+                                Color(0xFFAB47BC),
+                                Color(0xFF7B1FA2),
+                              ],
+                              collection: 'services',
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ServicesScreen(),
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -51,14 +81,44 @@ class BaseDataMenuScreen extends StatelessWidget {
                       // ردیف دوم: هزینه و بانک
                       Row(
                         children: [
-                          // تعریف بانک
                           Expanded(
-                            child: _buildBankCard(context),
+                            child: _buildModernCard(
+                              context: context,
+                              title: 'تعریف هزینه',
+                              subtitle: 'مدیریت هزینه‌ها',
+                              svgAsset: 'assets/images/icons/file-invoice-dollar.svg',
+                              gradientColors: [
+                                Color(0xFFFF8A65),
+                                Color(0xFFFF5722),
+                              ],
+                              collection: 'expenses',
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ExpensesScreen(),
+                                ),
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 16),
-                          // تعریف هزینه
                           Expanded(
-                            child: _buildExpenseCard(context),
+                            child: _buildModernCard(
+                              context: context,
+                              title: 'تعریف بانک',
+                              subtitle: 'مدیریت بانک‌ها',
+                              svgAsset: 'assets/images/icons/building.svg',
+                              gradientColors: [
+                                Color(0xFF4DB6AC),
+                                Color(0xFF26A69A),
+                              ],
+                              collection: 'banks',
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const BanksScreen(),
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -79,12 +139,23 @@ class BaseDataMenuScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: const Icon(
-              Icons.arrow_back,
-              color: AppColors.textPrimary,
+          GestureDetector(
+            onTap: () {},
+            child: Container(
+              width: 44,
+              height: 44,
+              //decoration: BoxDecoration(
+              //  color: Colors.grey.shade300,
+              //  shape: BoxShape.circle,
+              //),
+              //child: const Center(
+              //  child: FaIcon(
+              //    FontAwesomeIcons.user,
+              //    color: Colors.grey,
+              //    size: 20,
+              //  ),
+              //),
             ),
-            onPressed: () => Navigator.pop(context),
           ),
           const Text(
             'اطلاعات پایه',
@@ -94,172 +165,172 @@ class BaseDataMenuScreen extends StatelessWidget {
               color: AppColors.textPrimary,
             ),
           ),
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: FaIcon(
-                  FontAwesomeIcons.user,
-                  color: Colors.grey,
-                  size: 20,
-                ),
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.arrow_forward, color: AppColors.textPrimary),
+            onPressed: () => Navigator.pop(context),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCustomerCard(BuildContext context) {
+  Widget _buildModernCard({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required String svgAsset,
+    required List<Color> gradientColors,
+    required String collection,
+    required VoidCallback onTap,
+  }) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('customers').snapshots(),
+      stream: FirebaseFirestore.instance.collection(collection).snapshots(),
       builder: (context, snapshot) {
         int count = snapshot.hasData ? snapshot.data!.docs.length : 0;
 
-        return Column(
-          children: [
-            DashboardCard(
-              title: 'تعریف مشتری',
-              svgAsset: 'assets/images/icons/user-circle-plus.svg',
-              backgroundColor: const Color(0xFF5CADD8),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CustomersScreen(),
-                  ),
-                );
-              },
+        return GestureDetector(
+          onTap: onTap,
+          child: Container(
+            height: 200,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: gradientColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: gradientColors[1].withOpacity(0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              'تعداد: $count',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade700,
-                fontWeight: FontWeight.w500,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Stack(
+                children: [
+                  // Pattern خفیف در پس‌زمینه
+                  Positioned(
+                    right: -20,
+                    top: -20,
+                    child: Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.1),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: -30,
+                    bottom: -30,
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.05),
+                      ),
+                    ),
+                  ),
+
+                  // محتوای کارت
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // آیکون
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Center(
+                            child: SvgPicture.asset(
+                              svgAsset,
+                              width: 26,
+                              height: 26,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // عنوان
+                        Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+
+                        const SizedBox(height: 3),
+
+                        // زیرنویس
+                        Text(
+                          subtitle,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        // Badge تعداد
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.25),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '$count',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Text(
+                                  'مورد',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildServiceCard(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('services').snapshots(),
-      builder: (context, snapshot) {
-        int count = snapshot.hasData ? snapshot.data!.docs.length : 0;
-
-        return Column(
-          children: [
-            DashboardCard(
-              title: 'تعریف خدمت',
-              svgAsset: 'assets/images/icons/bag-shopping.svg',
-              backgroundColor: const Color(0xFF9C7DD8),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ServicesScreen(),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'تعداد: $count',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade700,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildExpenseCard(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('expenses').snapshots(),
-      builder: (context, snapshot) {
-        int count = snapshot.hasData ? snapshot.data!.docs.length : 0;
-
-        return Column(
-          children: [
-            DashboardCard(
-              title: 'تعریف هزینه',
-              svgAsset: 'assets/images/icons/file-invoice-dollar.svg',
-              backgroundColor: const Color(0xFFFF9F6E),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ExpensesScreen(),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'تعداد: $count',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade700,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildBankCard(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('banks').snapshots(),
-      builder: (context, snapshot) {
-        int count = snapshot.hasData ? snapshot.data!.docs.length : 0;
-
-        return Column(
-          children: [
-            DashboardCard(
-              title: 'تعریف بانک',
-              svgAsset: 'assets/images/icons/building.svg',
-              backgroundColor: const Color(0xFF7DD8B8),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const BanksScreen(),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'تعداد: $count',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade700,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+          ),
         );
       },
     );

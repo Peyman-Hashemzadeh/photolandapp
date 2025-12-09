@@ -147,19 +147,32 @@ class _ShareFormScreenState extends State<ShareFormScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-            onPressed: () => Navigator.pop(context),
+          GestureDetector(
+            onTap: () {},
+            child: Container(
+              width: 44,
+              height: 44,
+              //decoration: BoxDecoration(
+              //  color: Colors.grey.shade300,
+              //  shape: BoxShape.circle,
+              //),
+              //child: const Center(
+              //  child: FaIcon(FontAwesomeIcons.user, color: Colors.grey, size: 20),
+              //),
+            ),
           ),
           const Text(
-            'اشتراک‌گذاری فرم رزرو',
+            'اشتراک گذاری فرم رزرو نوبت',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: AppColors.textPrimary,
             ),
           ),
-          const SizedBox(width: 48), // برای تراز بودن
+          IconButton(
+            icon: const Icon(Icons.arrow_forward, color: AppColors.textPrimary),
+            onPressed: () => Navigator.pop(context),
+          ),
         ],
       ),
     );

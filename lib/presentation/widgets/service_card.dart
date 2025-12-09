@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/colors.dart';
 import '../../../data/models/service_model.dart';
+import '../../../core/utils/date_helper.dart';
+
 
 class ServiceCard extends StatefulWidget {
   final ServiceModel service;
@@ -48,32 +50,28 @@ class _ServiceCardState extends State<ServiceCard> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ردیف اول: نام خدمت
+              // ردیف اول: نام خدمت (راست‌چین کامل)
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.start, // راست‌چین کل Row
                 children: [
-                  const Expanded(child: SizedBox()),  // فضای خالی سمت چپ برای alignment
-
                   // نام خدمت
-                  Expanded(
-                    child: Text(
-                      widget.service.serviceName,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: widget.service.isActive
-                            ? AppColors.textPrimary
-                            : Colors.red.shade600,
-                      ),
+                  Text(
+                    widget.service.serviceName,
+                    textAlign: TextAlign.right, // راست‌چین
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: widget.service.isActive
+                          ? AppColors.textPrimary
+                          : Colors.red.shade600,
                     ),
                   ),
                 ],
               ),
 
-              // قیمت (در صورت وجود)
+              // قیمت (در صورت وجود) - ردیف جداگانه، راست‌چین
               if (widget.service.price != null && widget.service.formattedPrice != null) ...[
                 const SizedBox(height: 8),
                 Container(
@@ -86,10 +84,12 @@ class _ServiceCardState extends State<ServiceCard> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.start, // راست‌چین کل Row
                     children: [
                       Text(
-                        ' ریال',
+                        'قیمت پیش فرض: ${DateHelper.toPersianDigits(widget.service.formattedPrice!)} تومان', // ← عنوان + مبلغ فارسی + تومان
+                        textAlign: TextAlign.right,
+                        textDirection: TextDirection.rtl, // LTR فقط برای اعداد
                         style: TextStyle(
                           fontSize: 13,
                           color: widget.service.isActive
@@ -97,38 +97,47 @@ class _ServiceCardState extends State<ServiceCard> {
                               : Colors.red.shade600,
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        widget.service.formattedPrice!,
-                        textDirection: TextDirection.ltr,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: widget.service.isActive
-                              ? AppColors.textSecondary
-                              : Colors.red.shade600,
-                        ),
-                      ),
-
                     ],
                   ),
                 ),
               ],
 
-              // دکمه‌ها با AnimatedCrossFade
+              // دکمه‌ها با AnimatedCrossFade (بدون تغییر)
               AnimatedCrossFade(
-                firstChild: const SizedBox(height: 0),  // مخفی
+                firstChild: const SizedBox(height: 0), // مخفی
                 secondChild: Column(
                   children: [
                     const SizedBox(height: 12),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.start,  // از راست به چپ در RTL
+                      mainAxisAlignment: MainAxisAlignment.end, // از راست به چپ در RTL
                       children: [
+                        // دکمه ویرایش
+                        TextButton.icon(
+                          onPressed: () {
+                            widget.onEdit();
+                            setState(() {
+                              _isExpanded = false; // مخفی بعد از edit
+                            });
+                          },
+                          icon: const Icon(Icons.edit, size: 16),
+                          label: const Text('ویرایش'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 8),
+
                         // دکمه تعلیق/فعال‌سازی
                         TextButton.icon(
                           onPressed: () {
                             widget.onToggleStatus();
                             setState(() {
-                              _isExpanded = false;  // مخفی بعد از toggle
+                              _isExpanded = false; // مخفی بعد از toggle
                             });
                           },
                           icon: Icon(
@@ -142,27 +151,6 @@ class _ServiceCardState extends State<ServiceCard> {
                             foregroundColor: widget.service.isActive
                                 ? AppColors.error
                                 : AppColors.success,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(width: 8),
-
-                        // دکمه ویرایش
-                        TextButton.icon(
-                          onPressed: () {
-                            widget.onEdit();
-                            setState(() {
-                              _isExpanded = false;  // مخفی بعد از edit
-                            });
-                          },
-                          icon: const Icon(Icons.edit, size: 16),
-                          label: const Text('ویرایش'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.primary,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 8,

@@ -150,17 +150,16 @@ class _AddBankDialogState extends State<AddBankDialog> {
                       color: AppColors.textLight,
                       fontSize: 13,
                     ),
-                    prefixText: 'IR',
-                    prefixStyle: const TextStyle(
+                    suffixText: 'IR', // ← تغییر به suffixText برای سمت چپ در RTL
+                    suffixStyle: const TextStyle(
                       color: AppColors.textPrimary,
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
-                  //  icon: Icons.account_balance_wallet,
-
-                   // prefixIcon: const Icon(Icons.account_balance_wallet, color: AppColors.primary),
+                    // icon: Icons.account_balance_wallet,
+                    // prefixIcon: const Icon(Icons.account_balance_wallet, color: AppColors.primary),
                     filled: true,
-                    fillColor: Colors.grey[100],
+                    fillColor: Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -213,6 +212,17 @@ class _AddBankDialogState extends State<AddBankDialog> {
                 // دکمه‌ها
                 Row(
                   children: [
+                    // دکمه ثبت
+                    Expanded(
+                      child: CustomButton(
+                        text: isEditing ? 'ویرایش' : 'ثبت',
+                        onPressed: _handleSubmit,
+                        useGradient: true,
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+
                     // دکمه انصراف
                     Expanded(
                       child: OutlinedButton(
@@ -226,17 +236,6 @@ class _AddBankDialogState extends State<AddBankDialog> {
                           ),
                         ),
                         child: const Text('انصراف'),
-                      ),
-                    ),
-
-                    const SizedBox(width: 12),
-
-                    // دکمه ثبت
-                    Expanded(
-                      child: CustomButton(
-                        text: isEditing ? 'ویرایش' : 'ثبت',
-                        onPressed: _handleSubmit,
-                        useGradient: true,
                       ),
                     ),
                   ],

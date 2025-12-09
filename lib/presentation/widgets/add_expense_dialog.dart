@@ -4,6 +4,9 @@ import '../../../core/utils/price_input_formatter.dart';
 import '../../../data/models/expense_model.dart';
 import 'custom_textfield.dart';
 import 'custom_button.dart';
+import '../../core/utils/date_helper.dart';
+
+
 
 class AddExpenseDialog extends StatefulWidget {
   final ExpenseModel? expense; // اگه null باشه یعنی افزودن، وگرنه ویرایش
@@ -27,7 +30,9 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
     super.initState();
     _nameController = TextEditingController(text: widget.expense?.expenseName ?? '');
     _priceController = TextEditingController(
-      text: widget.expense?.formattedPrice ?? '',
+      text: widget.expense != null
+          ? DateHelper.toPersianDigits(widget.expense!.formattedPrice ?? '') // ← تبدیل به فارسی
+          : '',
     );
   }
 
@@ -108,7 +113,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
                   textAlign: TextAlign.right,
                   keyboardType: TextInputType.number,
                   inputFormatters: [
-                    PriceInputFormatter(),
+                    PersianPriceInputFormatter(),
                   ],
                   decoration: InputDecoration(
                     hintText: 'مبلغ هزینه (اختیاری)',

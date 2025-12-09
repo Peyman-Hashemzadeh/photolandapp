@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/colors.dart';
 import '../../../data/models/customer_model.dart';
+import '../../core/utils/date_helper.dart';
 
 class CustomerCard extends StatefulWidget {
   final CustomerModel customer;
@@ -54,23 +55,6 @@ class _CustomerCardState extends State<CustomerCard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // شماره موبایل
-                  Expanded(
-                    child: Text(
-                      customer.mobileNumber,
-                      textDirection: TextDirection.ltr,
-                      textAlign: TextAlign.left,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: customer.isActive
-                            ? AppColors.textSecondary
-                            : Colors.red.shade400,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(width: 16),
-
                   // نام و نام خانوادگی
                   Expanded(
                     child: Text(
@@ -82,6 +66,23 @@ class _CustomerCardState extends State<CustomerCard> {
                         color: customer.isActive
                             ? AppColors.textPrimary
                             : Colors.red.shade600,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 16),
+
+                  // شماره موبایل
+                  Expanded(
+                    child: Text(
+                      DateHelper.toPersianDigits(customer.mobileNumber), // ← تبدیل اعداد به فارسی
+                      textDirection: TextDirection.ltr, // LTR رو نگه دار، چون موبایل از چپ به راست خونده می‌شه
+                      textAlign: TextAlign.left,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: customer.isActive
+                            ? AppColors.textSecondary
+                            : Colors.red.shade400,
                       ),
                     ),
                   ),
@@ -120,8 +121,24 @@ class _CustomerCardState extends State<CustomerCard> {
                   children: [
                     const SizedBox(height: 12),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
+                        // دکمه ویرایش
+                        TextButton.icon(
+                          onPressed: widget.onEdit,
+                          icon: const Icon(Icons.edit, size: 16),
+                          label: const Text('ویرایش'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 8),
+
                         // دکمه تعلیق/فعال‌سازی
                         TextButton.icon(
                           onPressed: widget.onToggleStatus,
@@ -136,22 +153,6 @@ class _CustomerCardState extends State<CustomerCard> {
                             foregroundColor: customer.isActive
                                 ? AppColors.error
                                 : AppColors.success,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(width: 8),
-
-                        // دکمه ویرایش
-                        TextButton.icon(
-                          onPressed: widget.onEdit,
-                          icon: const Icon(Icons.edit, size: 16),
-                          label: const Text('ویرایش'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.primary,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 8,

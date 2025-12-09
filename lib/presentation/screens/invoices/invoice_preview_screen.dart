@@ -69,7 +69,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
             '${DateHelper.toPersianDigits(widget.invoice.invoiceNumber.toString())} '
             'از آتلیه کودک فتولند برای شما ارسال می‌گردد.\n\n'
             'مبلغ قابل پرداخت: '
-            '${DateHelper.toPersianDigits(ServiceModel.formatNumber(widget.grandTotal))} ریال\n\n'
+            '${DateHelper.toPersianDigits(ServiceModel.formatNumber(widget.grandTotal))} تومان\n\n'
             'از اینکه آتلیه فتولند را برای ثبت لحظات زیبای خود انتخاب کردید، صمیمانه سپاسگزاریم.\n'
             'در صورت نیاز به راهنمایی یا توضیحات بیشتر، با افتخار در خدمت شما هستیم.\n\n'
             'با آرزوی لحظاتی شاد و ماندگار 🌸',
@@ -212,7 +212,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
           ),
           SizedBox(height: 4), // فاصله بین عنوان و آدرس
           Text(
-            'شیراز، کوچه ۵ ملاصدرا، ساختمان طاها و پارسا ۷',
+            'شیراز، کوچه ۵ ملاصدرا، طاها و پارسا ۷',
             style: TextStyle(
               fontSize: 14,
               color: Colors.white70,
@@ -474,8 +474,8 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
+         // const Divider(height: 1),
+          const SizedBox(height: 8),
           // ردیف دوم: تعداد، قیمت واحد، جمع
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -570,11 +570,13 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
             const SizedBox(height: 12),
           ],
 
+          const SizedBox(height: 16),
+
           // خط جداکننده
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            child: const Divider(thickness: 2),
-          ),
+         // Container(
+         //   margin: const EdgeInsets.symmetric(vertical: 12),
+         //   child: const Divider(thickness: 2),
+         // ),
 
           // جمع نهایی
           Container(

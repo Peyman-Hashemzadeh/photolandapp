@@ -5,6 +5,19 @@ class PaymentRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String _collection = 'payments';
 
+  Stream<List<PaymentModel>> getPaymentsByInvoice(String invoiceId) {
+    return _firestore
+        .collection(_collection)
+        .where('invoiceId', isEqualTo: invoiceId)
+        .orderBy('paymentDate', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => PaymentModel.fromMap(doc.data(), doc.id))
+          .toList();
+    });
+  }
+
   // دریافت دریافتی‌های یک نوبت (مرتب‌شده از جدید به قدیم)
   Stream<List<PaymentModel>> getPaymentsByAppointment(String appointmentId) {
     return _firestore

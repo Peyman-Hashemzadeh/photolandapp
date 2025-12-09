@@ -14,7 +14,53 @@ import '../../../data/repositories/expense_repository.dart';
 import '../../../data/repositories/expense_document_repository.dart';
 import '../../../data/repositories/bank_repository.dart';
 import '../../widgets/custom_button.dart';
+import 'package:flutter/services.dart';
 
+class PersianPriceInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    if (newValue.text.isEmpty) {
+      return newValue;
+    }
+
+    String clean = newValue.text
+        .replaceAll('٬', '')
+        .replaceAll(',', '')
+        .replaceAllMapped(RegExp('[۰-۹]'), (Match m) {
+      return (m.group(0)!.codeUnitAt(0) - 1776).toString();
+    });
+
+    if (clean.isEmpty) clean = "0";
+
+    final number = int.tryParse(clean) ?? 0;
+    String formatted = _formatWithComma(number.toString());
+    formatted = DateHelper.toPersianDigits(formatted);
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
+  String _formatWithComma(String value) {
+    final buffer = StringBuffer();
+    int digits = 0;
+
+    for (int i = value.length - 1; i >= 0; i--) {
+      buffer.write(value[i]);
+      digits++;
+      if (digits == 3 && i != 0) {
+        buffer.write(',');
+        digits = 0;
+      }
+    }
+
+    return buffer.toString().split('').reversed.join('');
+  }
+}
 class AddExpenseDocumentScreen extends StatefulWidget {
   const AddExpenseDocumentScreen({super.key});
 
@@ -117,17 +163,17 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
     }
 
     if (_selectedExpense == null) {
-      SnackBarHelper.showError(context, 'لطفا هزینه را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا هزینه را انتخاب کنید!');
       return;
     }
 
     if (_selectedDate == null) {
-      SnackBarHelper.showError(context, 'لطفا تاریخ سند را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا تاریخ سند را انتخاب کنید!');
       return;
     }
 
     if (!_isCashPayment && _selectedBank == null) {
-      SnackBarHelper.showError(context, 'لطفا بانک را انتخاب کنید یا پرداخت نقدی را فعال کنید');
+      SnackBarHelper.showError(context, 'لطفا بانک را انتخاب کنید یا پرداخت نقدی را فعال کنید!');
       return;
     }
 
@@ -289,7 +335,7 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
                                 autovalidateMode: AutovalidateMode.onUserInteraction,
                                 validator: (expense) {
                                   if (expense == null) {
-                                    return 'لطفا هزینه را انتخاب کنید';
+                                    return 'لطفا هزینه را انتخاب کنید!';
                                   }
                                   return null;
                                 },
@@ -303,7 +349,7 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
                                           child: DropdownButton<ExpenseModel>(
                                             value: field.value,
                                             isExpanded: true,
-                                            icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                                            icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary),
                                             hint: const Text('انتخاب هزینه', textAlign: TextAlign.right),
                                             items: _expenses.map((expense) {
                                               return DropdownMenuItem(
@@ -359,7 +405,7 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
                                 },
                                 builder: (field) {
                                   return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       InkWell(
                                         onTap: () {
@@ -371,8 +417,6 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
                                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                                           child: Row(
                                             children: [
-                                              const Icon(Icons.arrow_drop_down, color: AppColors.primary),
-                                              const Spacer(),
                                               Text(
                                                 _selectedDate != null
                                                     ? DateHelper.formatPersianDate(_selectedDate!)
@@ -385,6 +429,7 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
                                                       : AppColors.textLight,
                                                 ),
                                               ),
+                                              const Spacer(),
                                             ],
                                           ),
                                         ),
@@ -416,10 +461,19 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
                                 controller: _amountController,
                                 keyboardType: TextInputType.number,
                                 textAlign: TextAlign.right,
-                                inputFormatters: [PriceInputFormatter()],
+                                inputFormatters: [
+                                  PersianPriceInputFormatter(), // 👈 تغییر به فرمتر فارسی
+                                ],
                                 decoration: InputDecoration(
                                   hintText: 'مبلغ هزینه',
-                                  prefixText: 'ریال',
+
+                                  // 🔥 تغییر از prefixText به suffixText (سمت راست)
+                                  suffixText: 'تومان',
+                                  suffixStyle: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 14,
+                                  ),
+
                                   filled: true,
                                   fillColor: Colors.white,
                                   border: OutlineInputBorder(
@@ -462,7 +516,7 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
                                       child: DropdownButton<BankModel>(
                                         value: _selectedBank,
                                         isExpanded: true,
-                                        icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                                        icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary),
                                         hint: const Text('انتخاب بانک', textAlign: TextAlign.right),
                                         items: _banks.map((bank) {
                                           return DropdownMenuItem(
@@ -486,16 +540,15 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
 
                             // 5. پرداخت نقدی
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [_getFieldShadow()],
-                              ),
+                              //padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              //decoration: BoxDecoration(
+                              //  color: Colors.white,
+                              //  borderRadius: BorderRadius.circular(12),
+                              //  boxShadow: [_getFieldShadow()],
+                              //),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
+                                mainAxisAlignment: MainAxisAlignment.start,
                                 children: [
-                                  const Text('پرداخت نقدی', style: TextStyle(fontSize: 14)),
                                   Checkbox(
                                     value: _isCashPayment,
                                     activeColor: AppColors.primary,
@@ -506,6 +559,9 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
                                       });
                                     },
                                   ),
+                                  const Text(
+                                      'هزینه را به صورت نقد ورداخت کردم.',
+                                      style: TextStyle(fontSize: 14)),
                                 ],
                               ),
                             ),
@@ -547,6 +603,15 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
                             Row(
                               children: [
                                 Expanded(
+                                  child: CustomButton(
+                                    text: 'ذخیره سند',
+                                    onPressed: _handleSubmit,
+                                    isLoading: _isLoading,
+                                    useGradient: true,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
                                   child: OutlinedButton(
                                     onPressed: _handleCancel,
                                     style: OutlinedButton.styleFrom(
@@ -558,15 +623,6 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
                                       ),
                                     ),
                                     child: const Text('انصراف'),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: CustomButton(
-                                    text: 'ذخیره سند',
-                                    onPressed: _handleSubmit,
-                                    isLoading: _isLoading,
-                                    useGradient: true,
                                   ),
                                 ),
                               ],
@@ -590,9 +646,19 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-            onPressed: _handleCancel,
+          GestureDetector(
+            onTap: () {},
+            child: Container(
+              width: 44,
+              height: 44,
+              //decoration: BoxDecoration(
+              //  color: Colors.grey.shade300,
+              //  shape: BoxShape.circle,
+              //),
+              //child: const Center(
+              //  child: FaIcon(FontAwesomeIcons.user, color: Colors.grey, size: 20),
+              //),
+            ),
           ),
           const Text(
             'صدور سند هزینه',
@@ -602,19 +668,9 @@ class _AddExpenseDocumentScreenState extends State<AddExpenseDocumentScreen> {
               color: AppColors.textPrimary,
             ),
           ),
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: FaIcon(FontAwesomeIcons.user, color: Colors.grey, size: 20),
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.arrow_forward, color: AppColors.textPrimary),
+            onPressed: _handleCancel,
           ),
         ],
       ),

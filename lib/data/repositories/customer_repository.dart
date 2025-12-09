@@ -91,7 +91,7 @@ class CustomerRepository {
       // بررسی تکراری بودن شماره
       final exists = await isMobileNumberExists(customer.mobileNumber);
       if (exists) {
-        throw Exception('این شماره قبلاً در سامانه ثبت شده است');
+        throw Exception('این شماره قبلا در سامانه ثبت شده است!');
       }
 
       final docRef = await _firestore.collection(_collection).add(customer.toMap());

@@ -26,7 +26,7 @@ class PersianDigitsInputFormatter extends TextInputFormatter {
       TextEditingValue newValue,
       ) {
     // فقط digits رو نگه دار (انگلیسی یا فارسی)
-    final filtered = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final filtered = newValue.text.replaceAll(RegExp(r'[^0-9۰-۹]'), '');
 
     if (filtered.isEmpty) return newValue;
 
@@ -49,6 +49,8 @@ class PersianDigitsInputFormatter extends TextInputFormatter {
     );
   }
 }
+
+
 class AddAppointmentScreen extends StatefulWidget {
   final bool isNewCustomer;
   final AppointmentModel? appointment; // برای ویرایش
@@ -498,7 +500,7 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
                                       keyboardType: TextInputType.phone,
                                       maxLength: 11,
                                       inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
+                                        PersianDigitsInputFormatter(),
                                       ],
                                       onChanged: (val) => field.didChange(val), // بروزرسانی فرم
                                     ),

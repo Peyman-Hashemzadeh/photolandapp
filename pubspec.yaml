@@ -50,6 +50,7 @@ dependencies:
   # برای انتخاب عکس
   image_picker: ^1.0.7
 
+  animations: ^2.0.11
 
   # برای QR Code
   qr_flutter: ^4.1.0

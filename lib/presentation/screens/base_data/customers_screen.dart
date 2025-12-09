@@ -37,13 +37,13 @@ class _CustomersScreenState extends State<CustomersScreen> {
           // افزودن مشتری جدید
           await _repository.addCustomer(result);
           if (mounted) {
-            SnackBarHelper.showSuccess(context, 'مشتری با موفقیت ثبت شد');
+            SnackBarHelper.showSuccess(context, 'مشتری با موفقیت ثبت شد.');
           }
         } else {
           // ویرایش مشتری
           await _repository.updateCustomer(result);
           if (mounted) {
-            SnackBarHelper.showSuccess(context, 'مشتری با موفقیت ویرایش شد');
+            SnackBarHelper.showSuccess(context, 'مشتری با موفقیت ویرایش شد.');
           }
         }
       } catch (e) {
@@ -95,7 +95,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
         if (mounted) {
           SnackBarHelper.showSuccess(
             context,
-            newStatus ? 'مشتری فعال شد' : 'مشتری تعلیق شد',
+            newStatus ? 'مشتری فعال شد.' : 'مشتری تعلیق شد.',
           );
         }
       } catch (e) {
@@ -146,16 +146,24 @@ class _CustomersScreenState extends State<CustomersScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // دکمه برگشت
-          IconButton(
-            icon: const Icon(
-              Icons.arrow_back,
-              color: AppColors.textPrimary,
+          GestureDetector(
+            onTap: () {},
+            child: Container(
+              width: 44,
+              height: 44,
+              //decoration: BoxDecoration(
+              //  color: Colors.grey.shade300,
+              //  shape: BoxShape.circle,
+              //),
+              //child: const Center(
+              //  child: FaIcon(
+              //    FontAwesomeIcons.user,
+              //    color: Colors.grey,
+              //    size: 20,
+              //  ),
+              //),
             ),
-            onPressed: () => Navigator.pop(context),
           ),
-
-          // عنوان
           const Text(
             'لیست مشتریان',
             style: TextStyle(
@@ -164,25 +172,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
               color: AppColors.textPrimary,
             ),
           ),
-
-          // آیکون پروفایل
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: FaIcon(
-                  FontAwesomeIcons.user,
-                  color: Colors.grey,
-                  size: 20,
-                ),
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.arrow_forward, color: AppColors.textPrimary),
+            onPressed: () => Navigator.pop(context),
           ),
         ],
       ),
@@ -255,8 +247,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 const SizedBox(height: 16),
                 Text(
                   _searchQuery.isEmpty
-                      ? 'هنوز مشتری‌ای ثبت نشده است'
-                      : 'نتیجه‌ای یافت نشد',
+                      ? 'هنوز مشتری‌ای ثبت نشده است!'
+                      : 'نتیجه‌ای یافت نشد!',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey.shade600,

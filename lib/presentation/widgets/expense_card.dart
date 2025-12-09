@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/colors.dart';
+import '../../../core/utils/date_helper.dart'; // ← برای toPersianDigits
 import '../../../data/models/expense_model.dart';
 
 class ExpenseCard extends StatefulWidget {
@@ -50,49 +51,52 @@ class _ExpenseCardState extends State<ExpenseCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // ردیف اول: نام و قیمت
+              // ردیف اول: نام هزینه (راست‌چین)
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.start, // راست‌چین کل Row
                 children: [
-                  // قیمت (سمت چپ)
-                  if (expense.price != null)
-                    Text(
-                      expense.formattedPrice!,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: expense.isActive
-                            ? AppColors.primary
-                            : Colors.red.shade400,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  else
-                    Text(
-                      '---',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: expense.isActive
-                            ? AppColors.textLight
-                            : Colors.red.shade300,
-                      ),
-                    ),
-
-                  // نام هزینه (سمت راست)
-                  Expanded(
-                    child: Text(
-                      expense.expenseName,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: expense.isActive
-                            ? AppColors.textPrimary
-                            : Colors.red.shade600,
-                      ),
+                  Text(
+                    expense.expenseName,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: expense.isActive
+                          ? AppColors.textPrimary
+                          : Colors.red.shade600,
                     ),
                   ),
                 ],
               ),
+
+              // ردیف دوم: قیمت پیش‌فرض (در صورت وجود) - تم خاکستری
+              if (expense.price != null && expense.formattedPrice != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50, // تم خاکستری
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.start, // راست‌چین
+                    children: [
+                      Text(
+                        'قیمت پیش ‌فرض: ${DateHelper.toPersianDigits(expense.formattedPrice!)} تومان', // ← عنوان + مبلغ فارسی + تومان
+                        textAlign: TextAlign.right,
+                        textDirection: TextDirection.ltr, // LTR فقط برای اعداد
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: expense.isActive
+                              ? AppColors.textSecondary
+                              : Colors.red.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               // دکمه‌های عملیاتی
               AnimatedCrossFade(
@@ -101,11 +105,37 @@ class _ExpenseCardState extends State<ExpenseCard> {
                   children: [
                     const SizedBox(height: 12),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.end, // راست‌چین در RTL
                       children: [
+                        // دکمه ویرایش
+                        TextButton.icon(
+                          onPressed: () {
+                            widget.onEdit();
+                            setState(() {
+                              _isExpanded = false; // مخفی بعد از edit
+                            });
+                          },
+                          icon: const Icon(Icons.edit, size: 16),
+                          label: const Text('ویرایش'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 8),
+
                         // دکمه تعلیق/فعال‌سازی
                         TextButton.icon(
-                          onPressed: widget.onToggleStatus,
+                          onPressed: () {
+                            widget.onToggleStatus();
+                            setState(() {
+                              _isExpanded = false; // مخفی بعد از toggle
+                            });
+                          },
                           icon: Icon(
                             expense.isActive
                                 ? Icons.block
@@ -117,22 +147,6 @@ class _ExpenseCardState extends State<ExpenseCard> {
                             foregroundColor: expense.isActive
                                 ? AppColors.error
                                 : AppColors.success,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(width: 8),
-
-                        // دکمه ویرایش
-                        TextButton.icon(
-                          onPressed: widget.onEdit,
-                          icon: const Icon(Icons.edit, size: 16),
-                          label: const Text('ویرایش'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.primary,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 8,

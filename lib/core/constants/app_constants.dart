@@ -1,7 +1,7 @@
 class AppConstants {
   // اطلاعات برنامه
   static const String appName = 'PhotoLand Studio';
-  static const String appVersion = '۱.۰.۰';
+  static const String appVersion = '۱.۱۲.۷';
   static const String appTagline = 'مدیریت آتلیه فتولند';
 
   // مدت زمان نمایش Splash

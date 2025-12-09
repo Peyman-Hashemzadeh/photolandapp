@@ -12,6 +12,13 @@ import '../../../data/repositories/appointment_repository.dart';
 import '../../../data/repositories/bank_repository.dart';
 import '../../../data/models/service_model.dart';
 import '../../widgets/custom_button.dart';
+import '../../../data/models/payment_model.dart';
+import '../../../data/repositories/payment_repository.dart';
+import '../../../data/repositories/invoice_repository.dart';
+import '../../../data/repositories/payment_repository.dart';
+import '../../../data/models/invoice_model.dart';
+import '../../../data/models/payment_model.dart';
+
 
 class AppointmentDepositScreen extends StatefulWidget {
   final AppointmentModel appointment;
@@ -31,29 +38,21 @@ class PersianPriceInputFormatter extends TextInputFormatter {
       TextEditingValue oldValue,
       TextEditingValue newValue,
       ) {
-    // جلوگیری از حذف یکجا
     if (newValue.text.isEmpty) {
       return newValue;
     }
 
-    // حذف جداکننده و تبدیل فارسی → انگلیسی برای پردازش
     String clean = newValue.text
-        .replaceAll('٬', '') // کاما فارسی
-        .replaceAll(',', '') // کاما انگلیسی
+        .replaceAll('٬', '')
+        .replaceAll(',', '')
         .replaceAllMapped(RegExp('[۰-۹]'), (Match m) {
       return (m.group(0)!.codeUnitAt(0) - 1776).toString();
     });
 
-    // اگر خالی شد
     if (clean.isEmpty) clean = "0";
 
-    // تبدیل به int
     final number = int.tryParse(clean) ?? 0;
-
-    // جداکننده سه‌رقمی انگلیسی
     String formatted = _formatWithComma(number.toString());
-
-    // تبدیل اعداد انگلیسی به فارسی
     formatted = DateHelper.toPersianDigits(formatted);
 
     return TextEditingValue(
@@ -62,7 +61,6 @@ class PersianPriceInputFormatter extends TextInputFormatter {
     );
   }
 
-  /// ۳ رقم ۳ رقم جدا می‌کند
   String _formatWithComma(String value) {
     final buffer = StringBuffer();
     int digits = 0;
@@ -84,7 +82,7 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
   final _formKey = GlobalKey<FormState>();
   final AppointmentRepository _appointmentRepository = AppointmentRepository();
   final BankRepository _bankRepository = BankRepository();
-
+  final PaymentRepository _paymentRepository = PaymentRepository();
   final _depositAmountController = TextEditingController();
 
   Jalali? _selectedDepositDate;
@@ -92,13 +90,13 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
   List<BankModel> _banks = [];
   bool _isLoading = false;
   bool _isLoadingBanks = true;
-  bool _isCashPayment = false; // 🔥 چک‌باکس دریافت نقدی
+  bool _isCashPayment = false;
 
   @override
   void initState() {
     super.initState();
     _loadBanks();
-    _loadExistingDeposit(); // 🔥 بارگذاری بیعانه موجود (اگر ویرایشه)
+    _loadExistingDeposit();
   }
 
   @override
@@ -118,7 +116,6 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
     });
   }
 
-  // 🔥 بارگذاری بیعانه موجود (برای حالت ویرایش)
   void _loadExistingDeposit() {
     if (widget.appointment.depositAmount != null) {
       _depositAmountController.text = ServiceModel.formatNumber(widget.appointment.depositAmount!);
@@ -182,10 +179,9 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
 
   String? _validateDepositFields(String? value) {
     if (!_hasAnyDepositField()) {
-      return null; // همه اختیاری هستند
+      return null;
     }
 
-    // اگر یکی پر شده، همه باید پر باشند
     if (_depositAmountController.text.isEmpty) {
       return 'مبلغ بیعانه اجباری است';
     }
@@ -193,7 +189,6 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
       return 'تاریخ دریافت اجباری است';
     }
 
-    // 🔥 اگر نقدی نیست، بانک اجباریه
     if (!_isCashPayment && _selectedBank == null) {
       return 'انتخاب بانک اجباری است';
     }
@@ -218,25 +213,63 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
             ? null
             : ServiceModel.parsePrice(_depositAmountController.text),
         depositReceivedDate: _selectedDepositDate?.toDateTime(),
-        // 🔥 اگر نقدی باشه، بانک null میشه
         bankId: _isCashPayment ? null : _selectedBank?.id,
         bankName: _isCashPayment ? 'نقدی' : _selectedBank?.bankName,
         createdAt: widget.appointment.createdAt,
       );
 
-      // 🔥 اصلاح شده: بررسی ویرایش یا ایجاد جدید
+      String appointmentId;
+
+      // بررسی ویرایش یا ایجاد جدید
       if (widget.appointment.id.isNotEmpty) {
-        // حالت ویرایش - آپدیت کن
+        // حالت ویرایش
         await _appointmentRepository.updateAppointment(finalAppointment);
+        appointmentId = widget.appointment.id;
 
         if (!mounted) return;
         SnackBarHelper.showSuccess(context, 'نوبت با موفقیت ویرایش شد');
       } else {
-        // حالت جدید - اضافه کن
-        await _appointmentRepository.addAppointment(finalAppointment);
+        // حالت جدید
+        appointmentId = await _appointmentRepository.addAppointment(finalAppointment);
 
         if (!mounted) return;
         SnackBarHelper.showSuccess(context, 'نوبت با موفقیت ثبت شد');
+      }
+
+      // 🔥 اگر بیعانه ثبت شده، یک PaymentModel هم بساز
+      if (finalAppointment.hasDeposit) {
+        // 1️⃣ ایجاد فاکتور خالی
+        final invoiceNumber = await InvoiceRepository().getNextInvoiceNumber();
+
+        final newInvoice = InvoiceModel(
+          id: '',
+          appointmentId: appointmentId,
+          customerId: finalAppointment.customerId,
+          customerName: finalAppointment.customerName,
+          customerMobile: finalAppointment.customerMobile,
+          invoiceNumber: invoiceNumber,
+          invoiceDate: DateTime.now(),
+          createdAt: DateTime.now(),
+        );
+
+        final invoiceId = await InvoiceRepository().createInvoice(newInvoice);
+
+        // 2️⃣ ثبت بیعانه با لینک به فاکتور
+        final depositPayment = PaymentModel(
+          id: '',
+          appointmentId: appointmentId,
+          invoiceId: invoiceId, // 🔥 لینک به فاکتور
+          amount: finalAppointment.depositAmount!,
+          type: 'deposit',
+          paymentDate: finalAppointment.depositReceivedDate!,
+          bankId: finalAppointment.bankId,
+          bankName: finalAppointment.bankName,
+          isCash: finalAppointment.bankName == 'نقدی',
+          createdAt: DateTime.now(),
+        );
+
+        await PaymentRepository().addPayment(depositPayment);
+        debugPrint('✅ فاکتور $invoiceId و بیعانه ایجاد شد');
       }
 
       // برگشت به صفحه اول
@@ -279,24 +312,18 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
                     key: _formKey,
                     child: Column(
                       children: [
-                        // مبلغ بیعانه
                         TextFormField(
                           controller: _depositAmountController,
                           textAlign: TextAlign.right,
                           keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            PersianPriceInputFormatter(), // 👈 فرمت جدید
-                          ],
+                          inputFormatters: [PersianPriceInputFormatter()],
                           decoration: InputDecoration(
                             hintText: 'مبلغ بیعانه',
-
-                            // نمایش "ریال" سمت چپ فیلد
-                            suffixText: 'ریال',
+                            suffixText: 'تومان',
                             suffixStyle: const TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 14,
                             ),
-
                             filled: true,
                             fillColor: Colors.white,
                             border: OutlineInputBorder(
@@ -305,10 +332,7 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 16),
-
-                        // تاریخ دریافت
                         InkWell(
                           onTap: _selectDepositDate,
                           child: Container(
@@ -345,10 +369,7 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 16),
-
-                        // انتخاب بانک (غیرفعال اگر نقدی باشه)
                         Opacity(
                           opacity: _isCashPayment ? 0.5 : 1.0,
                           child: IgnorePointer(
@@ -398,16 +419,13 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
                                       ),
                                     ),
                                   ),
-                                  const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                                  const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary),
                                 ],
                               ),
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 16),
-
-                        // 🔥 چک‌باکس دریافت نقدی
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 12),
                           decoration: BoxDecoration(
@@ -423,7 +441,7 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
                                   setState(() {
                                     _isCashPayment = value ?? false;
                                     if (_isCashPayment) {
-                                      _selectedBank = null; // پاک کردن بانک انتخابی
+                                      _selectedBank = null;
                                     }
                                   });
                                 },
@@ -438,10 +456,7 @@ class _AppointmentDepositScreenState extends State<AppointmentDepositScreen> {
                             ],
                           ),
                         ),
-
                         const SizedBox(height: 32),
-
-                        // دکمه ذخیره
                         CustomButton(
                           text: widget.appointment.id.isNotEmpty ? 'ویرایش نوبت' : 'ذخیره نوبت',
                           onPressed: _handleSave,

@@ -114,7 +114,7 @@ class DurationDropdown extends StatelessWidget {
 
                     // ✅ آیکون سمت چپ
                     const Icon(
-                      Icons.arrow_drop_down,
+                      Icons.arrow_drop_down_rounded,
                       color: AppColors.primary,
                     ),
                   ],

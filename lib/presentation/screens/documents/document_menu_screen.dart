@@ -66,7 +66,7 @@ class DocumentMenuScreen extends StatelessWidget {
                       // ثبت هزینه
                       DashboardCard(
                         title: 'ثبت هزینه',
-                        svgAsset: 'assets/images/icons/receipt.svg',
+                        svgAsset: 'assets/images/icons/coins.svg',
                         backgroundColor: const Color(0xFFFF9F6E),
                         onTap: () {
                           Navigator.push(
@@ -94,12 +94,23 @@ class DocumentMenuScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: const Icon(
-              Icons.arrow_back,
-              color: AppColors.textPrimary,
+          GestureDetector(
+            onTap: () {},
+            child: Container(
+              width: 44,
+              height: 44,
+              //decoration: BoxDecoration(
+              //  color: Colors.grey.shade300,
+              //  shape: BoxShape.circle,
+              //),
+              //child: const Center(
+              //  child: FaIcon(
+              //    FontAwesomeIcons.user,
+              //    color: Colors.grey,
+              //    size: 20,
+              //  ),
+              //),
             ),
-            onPressed: () => Navigator.pop(context),
           ),
           const Text(
             'صدور سند',
@@ -109,23 +120,12 @@ class DocumentMenuScreen extends StatelessWidget {
               color: AppColors.textPrimary,
             ),
           ),
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: FaIcon(
-                  FontAwesomeIcons.user,
-                  color: Colors.grey,
-                  size: 20,
-                ),
-              ),
+          IconButton(
+            icon: const Icon(
+              Icons.arrow_forward,
+              color: AppColors.textPrimary,
             ),
+            onPressed: () => Navigator.pop(context),
           ),
         ],
       ),

@@ -20,7 +20,7 @@ class BankCard extends StatefulWidget {
 }
 
 class _BankCardState extends State<BankCard> {
-  bool _isExpanded = false;  // state برای نمایش/مخفی کردن دکمه‌ها (مثل customer)
+  bool _isExpanded = false; // state برای نمایش/مخفی کردن دکمه‌ها (مثل customer)
 
   // Helper برای فرمت ایمن فیلدهای عادی
   String _safeValue(String? value) {
@@ -42,23 +42,23 @@ class _BankCardState extends State<BankCard> {
     String body = digits.substring(2); // 22 digits باقی (برای 5*4 + 2)
 
     List<String> groups = <String>[];
-    for (int i = 0; i < 20; i += 4) {  // 5 گروه 4 رقمی (20 رقم اول)
+    for (int i = 0; i < 20; i += 4) { // 5 گروه 4 رقمی (20 رقم اول)
       groups.add(body.substring(i, i + 4));
     }
-    groups.add(body.substring(20, 22));  // 2 رقم آخر جدا
+    groups.add(body.substring(20, 22)); // 2 رقم آخر جدا
 
     return 'IR$checksum ${groups.join(' ')}';
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(  // تاچ روی کل card
+    return GestureDetector( // تاچ روی کل card
       onTap: () {
         setState(() {
-          _isExpanded = !_isExpanded;  // toggle
+          _isExpanded = !_isExpanded; // toggle
         });
       },
-      child: AnimatedContainer(  // انیمیشن کلی card (مثل customer)
+      child: AnimatedContainer( // انیمیشن کلی card (مثل customer)
         duration: const Duration(milliseconds: 250),
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
@@ -77,40 +77,40 @@ class _BankCardState extends State<BankCard> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ردیف اول: نام بانک و شماره حساب
+              // ردیف اول: شماره حساب (سمت چپ) و نام بانک (سمت راست)
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween, // شماره چپ، نام راست
                 children: [
-                  // شماره حساب
-                  Expanded(
-                    child: Text(
-                      widget.bank.accountNumber ?? 'بدون شماره حساب',
-                      textDirection: TextDirection.ltr,
-                      textAlign: TextAlign.left,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: widget.bank.isActive
-                            ? AppColors.textSecondary
-                            : Colors.red.shade400,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(width: 16),
-
-                  // نام بانک
+                  // نام بانک (Expanded برای right align)
                   Expanded(
                     child: Text(
                       widget.bank.bankName,
-                      textAlign: TextAlign.right,
+                      textAlign: TextAlign.right, // راست‌چین (سمت راست باکس)
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: widget.bank.isActive
                             ? AppColors.textPrimary
                             : Colors.red.shade600,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 16), // فاصله کوچک
+
+                  // شماره حساب (Expanded برای left align در RTL)
+                  Expanded(
+                    child: Text(
+                      _safeValue(widget.bank.accountNumber),
+                      textDirection: TextDirection.ltr, // LTR برای اعداد
+                      textAlign: TextAlign.left, // چپ‌چین (سمت چپ باکس)
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: widget.bank.isActive
+                            ? AppColors.textSecondary
+                            : Colors.red.shade400,
                       ),
                     ),
                   ),
@@ -171,62 +171,13 @@ class _BankCardState extends State<BankCard> {
 
               // دکمه‌ها با AnimatedCrossFade (مثل customer)
               AnimatedCrossFade(
-                firstChild: const SizedBox(height: 0),  // مخفی
+                firstChild: const SizedBox(height: 0), // مخفی
                 secondChild: Column(
                   children: [
                     const SizedBox(height: 12),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.start,  // از راست به چپ در RTL
+                      mainAxisAlignment: MainAxisAlignment.end, // از راست به چپ در RTL
                       children: [
-                        // دکمه تعلیق/فعال‌سازی
-                        TextButton.icon(
-                          onPressed: () {
-                            widget.onToggleStatus();
-                            setState(() {
-                              _isExpanded = false;  // مخفی بعد از toggle
-                            });
-                          },
-                          icon: Icon(
-                            widget.bank.isActive
-                                ? Icons.block
-                                : Icons.check_circle,
-                            size: 16,
-                          ),
-                          label: Text(widget.bank.isActive ? 'تعلیق' : 'فعال'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: widget.bank.isActive
-                                ? AppColors.error
-                                : AppColors.success,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(width: 8),
-
-                        // دکمه ویرایش
-                        TextButton.icon(
-                          onPressed: () {
-                            widget.onEdit();
-                            setState(() {
-                              _isExpanded = false;  // مخفی بعد از edit
-                            });
-                          },
-                          icon: const Icon(Icons.edit, size: 16),
-                          label: const Text('ویرایش'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(width: 8),
-
                         // دکمه کپی
                         TextButton.icon(
                           icon: const Icon(Icons.copy, color: Colors.blueAccent),
@@ -247,6 +198,55 @@ class _BankCardState extends State<BankCard> {
                             );
                           },
                         ),
+
+                        const SizedBox(width: 8),
+
+                        // دکمه ویرایش
+                        TextButton.icon(
+                          onPressed: () {
+                            widget.onEdit();
+                            setState(() {
+                              _isExpanded = false; // مخفی بعد از edit
+                            });
+                          },
+                          icon: const Icon(Icons.edit, size: 16),
+                          label: const Text('ویرایش'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 8),
+
+                        // دکمه تعلیق/فعال‌سازی
+                        TextButton.icon(
+                          onPressed: () {
+                            widget.onToggleStatus();
+                            setState(() {
+                              _isExpanded = false; // مخفی بعد از toggle
+                            });
+                          },
+                          icon: Icon(
+                            widget.bank.isActive
+                                ? Icons.block
+                                : Icons.check_circle,
+                            size: 16,
+                          ),
+                          label: Text(widget.bank.isActive ? 'تعلیق' : 'فعال'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: widget.bank.isActive
+                                ? AppColors.error
+                                : AppColors.success,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -254,7 +254,7 @@ class _BankCardState extends State<BankCard> {
                 crossFadeState: _isExpanded
                     ? CrossFadeState.showSecond
                     : CrossFadeState.showFirst,
-                duration: const Duration(milliseconds: 250),  // نرم مثل customer
+                duration: const Duration(milliseconds: 250), // نرم مثل customer
               ),
             ],
           ),

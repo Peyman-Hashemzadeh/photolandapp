@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/invoice_model.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class InvoiceRepository {
+  final FirebaseAuth _auth = FirebaseAuth.instance; // 🔥 اضافه کنید
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String _invoicesCollection = 'invoices';
   final String _itemsCollection = 'invoice_items';
@@ -75,6 +77,24 @@ class InvoiceRepository {
           .map((doc) => InvoiceModel.fromMap(doc.data(), doc.id))
           .toList();
     });
+  }
+
+  Future<void> updateDeliveryDate(String invoiceId, DateTime? deliveryDate) async {
+    try {
+      await _firestore.collection(_invoicesCollection).doc(invoiceId).update({
+        'deliveryDate': deliveryDate != null
+            ? Timestamp.fromDate(deliveryDate)
+            : null,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+    } catch (e) {
+      throw Exception('خطا در بروزرسانی تاریخ تحویل: $e');
+    }
+  }
+
+  // 🔥 جدید: محاسبه تاریخ تحویل پیش‌فرض (14 روز بعد از تاریخ)
+  DateTime calculateDefaultDeliveryDate(DateTime settlementDate) {
+    return settlementDate.add(const Duration(days: 14));
   }
 
   // 🔥 دریافت فاکتورهای تسویه شده نزدیک به تحویل (برای یادآوری)
@@ -198,18 +218,27 @@ class InvoiceRepository {
   }
 
   // حذف فاکتور
+  // حذف فاکتور
   Future<void> deleteInvoice(String invoiceId) async {
     try {
-      await _firestore.collection(_invoicesCollection).doc(invoiceId).delete();
-
-      final items = await _firestore
-          .collection(_itemsCollection)
+      // 🔥 حذف تمام آیتم‌های فاکتور
+      final itemsSnapshot = await _firestore
+          .collection(_itemsCollection) // استفاده از collection اصلی
           .where('invoiceId', isEqualTo: invoiceId)
           .get();
 
-      for (var doc in items.docs) {
+      // حذف هر آیتم
+      for (var doc in itemsSnapshot.docs) {
         await doc.reference.delete();
       }
+
+      // 🔥 حذف فاکتور
+      await _firestore
+          .collection(_invoicesCollection)
+          .doc(invoiceId)
+          .delete();
+
+      print('✅ فاکتور $invoiceId و ${itemsSnapshot.docs.length} آیتم حذف شد');
     } catch (e) {
       throw Exception('خطا در حذف فاکتور: $e');
     }

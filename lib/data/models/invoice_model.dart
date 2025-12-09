@@ -85,8 +85,11 @@ class InvoiceModel {
   final int? discount; // تخفیف
   final String? notes; // توضیحات
 
-  // 🔥 فیلد جدید: وضعیت فاکتور
+  //  وضعیت فاکتور
   final String? status; // وضعیت: 'editing', 'confirmed', 'printing', 'printed', 'delivered'
+
+  //  تاریخ تحویل
+  final DateTime? deliveryDate; // تاریخ تحویل (14 روز بعد از تسویه به صورت پیش‌فرض)
 
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -103,6 +106,7 @@ class InvoiceModel {
     this.discount,
     this.notes,
     this.status = 'editing', // 🔥 تغییر: پیش‌فرض "editing" (درصف ویرایش)
+    this.deliveryDate,
     required this.createdAt,
     this.updatedAt,
   });
@@ -121,6 +125,9 @@ class InvoiceModel {
       discount: map['discount'],
       notes: map['notes'],
       status: map['status'], // 🔥 اضافه شد
+      deliveryDate: map['deliveryDate'] != null // 🔥 جدید
+          ? (map['deliveryDate'] as Timestamp).toDate()
+          : null,
       createdAt: (map['createdAt'] as Timestamp).toDate(),
       updatedAt: map['updatedAt'] != null
           ? (map['updatedAt'] as Timestamp).toDate()
@@ -141,6 +148,9 @@ class InvoiceModel {
       'discount': discount,
       'notes': notes,
       'status': status, // 🔥 اضافه شد
+      'deliveryDate': deliveryDate != null // 🔥 جدید
+          ? Timestamp.fromDate(deliveryDate!)
+          : null,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
     };
@@ -159,6 +169,7 @@ class InvoiceModel {
     int? discount,
     String? notes,
     String? status, // 🔥 اضافه شد
+    DateTime? deliveryDate,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -174,6 +185,7 @@ class InvoiceModel {
       discount: discount ?? this.discount,
       notes: notes ?? this.notes,
       status: status ?? this.status, // 🔥 اضافه شد
+      deliveryDate: deliveryDate ?? this.deliveryDate, // 🔥 جدید
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

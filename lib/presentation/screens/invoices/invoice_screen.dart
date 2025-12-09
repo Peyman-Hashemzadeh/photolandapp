@@ -145,6 +145,24 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
 
   int get _remainingAmount => _totalAmount - _paidAmount;
 
+  Future<void> _updateDepositInvoiceId(String invoiceId) async {
+    try {
+      final payments = await _paymentRepository
+          .getPaymentsByAppointment(widget.appointment.id)
+          .first;
+
+      for (var payment in payments) {
+        if (payment.type == 'deposit' && payment.invoiceId == null) {
+          await _paymentRepository.updatePayment(
+            payment.copyWith(invoiceId: invoiceId),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('خطا در آپدیت invoiceId: $e');
+    }
+  }
+
   // 🔥 تغییر اصلی: فاکتور رو اینجا ایجاد می‌کنیم (اولین بار که آیتم اضافه میشه)
   Future<void> _showAddItemDialog({InvoiceItem? item}) async {
     // 🔥 اگر فاکتور وجود نداره، اول یکی بسازیم
@@ -168,6 +186,8 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
         setState(() {
           _invoice = newInvoice.copyWith(id: invoiceId);
         });
+
+        await _updateDepositInvoiceId(invoiceId);
 
         // شروع به گوش دادن به آیتم‌ها و پرداخت‌ها
         _invoiceRepository.getInvoiceItems(_invoice!.id).listen((items) {
@@ -193,6 +213,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
         return;
       }
     }
+
 
     // حالا دیالوگ رو نمایش میدیم
     final result = await showDialog<InvoiceItem>(
@@ -262,24 +283,99 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
   }
 
   void _goToPayments() {
-    // 🔥 اگر فاکتور وجود نداره، نمیزاریم بره صفحه پرداخت
+    // 🔥 حذف چک قبلی
+    // اگر فاکتور وجود نداشت، اول بسازیم
     if (_invoice == null) {
-      SnackBarHelper.showError(context, 'ابتدا حداقل یک آیتم به فاکتور اضافه کنید');
-      return;
-    }
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PaymentsScreen(
-          appointment: widget.appointment,
-          invoice: _invoice!,
+      _createInvoiceAndNavigate();
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PaymentsScreen(
+            appointment: widget.appointment,
+            invoice: _invoice!,
+          ),
         ),
-      ),
-    );
+      );
+    }
+  }
+  Future<void> _createInvoiceAndNavigate() async {
+    try {
+      final invoiceNumber = await _invoiceRepository.getNextInvoiceNumber();
+
+      final newInvoice = InvoiceModel(
+        id: '',
+        appointmentId: widget.appointment.id,
+        customerId: widget.appointment.customerId,
+        customerName: widget.appointment.customerName,
+        customerMobile: widget.appointment.customerMobile,
+        invoiceNumber: invoiceNumber,
+        invoiceDate: DateTime.now(),
+        createdAt: DateTime.now(),
+      );
+
+      final invoiceId = await _invoiceRepository.createInvoice(newInvoice);
+
+      setState(() {
+        _invoice = newInvoice.copyWith(id: invoiceId);
+      });
+
+      await _updateDepositInvoiceId(invoiceId);
+
+      // شروع گوش دادن به تغییرات
+      _invoiceRepository.getInvoiceItems(_invoice!.id).listen((items) {
+        if (mounted) {
+          setState(() {
+            _items = items;
+            _calculateTotals();
+          });
+        }
+      });
+
+      _paymentRepository.getPaymentsByAppointment(widget.appointment.id).listen((payments) {
+        if (mounted) {
+          setState(() {
+            _paidAmount = payments.fold(0, (sum, payment) => sum + payment.amount);
+          });
+        }
+      });
+
+      // انتقال به صفحه پرداخت
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PaymentsScreen(
+              appointment: widget.appointment,
+              invoice: _invoice!,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackBarHelper.showError(context, 'خطا در ایجاد فاکتور: ${e.toString().replaceAll('Exception: ', '')}');
+      }
+    }
   }
 
   Future<void> _handleBack() async {
+    // 🔥 اصلاح شرط: چک کن که واقعاً خالیه
+    if (_invoice != null && _items.isEmpty && _paidAmount == 0 && _totalAmount == 0) {
+      try {
+        await _invoiceRepository.deleteInvoice(_invoice!.id);
+        print('✅ فاکتور خالی ${_invoice!.id} حذف شد');
+      } catch (e) {
+        debugPrint('⚠️ خطا در حذف فاکتور خالی: $e');
+      }
+
+      // بدون تاییدیه برمی‌گردیم
+      if (mounted) {
+        Navigator.pop(context);
+      }
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => Directionality(
@@ -473,7 +569,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: _remainingAmount > 0 ? AppColors.error : AppColors.success,
+                  color: _remainingAmount > 0 ? AppColors.success : AppColors.error,
                 ),
               ),
             ],
@@ -845,7 +941,7 @@ class _AddItemDialogState extends State<_AddItemDialog> {
                     child: DropdownButton<ServiceModel>(
                       value: _selectedService,
                       isExpanded: true,
-                      icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                      icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary),
                       hint: const Text('انتخاب خدمت', textAlign: TextAlign.right),
                       items: widget.services.map((service) {
                         return DropdownMenuItem(
@@ -896,7 +992,7 @@ class _AddItemDialogState extends State<_AddItemDialog> {
                   ],
                   decoration: InputDecoration(
                     hintText: 'مبلغ واحد',
-                    suffixText: 'ریال',
+                    suffixText: 'تومان',
                     suffixStyle: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 14,

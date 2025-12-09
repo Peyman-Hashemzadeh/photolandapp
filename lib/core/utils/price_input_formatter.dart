@@ -1,4 +1,60 @@
 import 'package:flutter/services.dart';
+import '../utils/date_helper.dart';
+
+class PersianPriceInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    // جلوگیری از حذف یکجا
+    if (newValue.text.isEmpty) {
+      return newValue;
+    }
+
+    // حذف جداکننده و تبدیل فارسی → انگلیسی برای پردازش
+    String clean = newValue.text
+        .replaceAll('٬', '') // کاما فارسی
+        .replaceAll(',', '') // کاما انگلیسی
+        .replaceAllMapped(RegExp('[۰-۹]'), (Match m) {
+      return (m.group(0)!.codeUnitAt(0) - 1776).toString();
+    });
+
+    // اگر خالی شد
+    if (clean.isEmpty) clean = "0";
+
+    // تبدیل به int
+    final number = int.tryParse(clean) ?? 0;
+
+    // جداکننده سه‌رقمی انگلیسی
+    String formatted = _formatWithComma(number.toString());
+
+    // تبدیل اعداد انگلیسی به فارسی
+    formatted = DateHelper.toPersianDigits(formatted);
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
+  /// ۳ رقم ۳ رقم جدا می‌کند
+  String _formatWithComma(String value) {
+    final buffer = StringBuffer();
+    int digits = 0;
+
+    for (int i = value.length - 1; i >= 0; i--) {
+      buffer.write(value[i]);
+      digits++;
+      if (digits == 3 && i != 0) {
+        buffer.write(',');
+        digits = 0;
+      }
+    }
+
+    return buffer.toString().split('').reversed.join('');
+  }
+}
 
 class PriceInputFormatter extends TextInputFormatter {
   @override

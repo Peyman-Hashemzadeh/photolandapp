@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter/services.dart';
 import 'package:persian_datetime_picker/persian_datetime_picker.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import '../../../core/constants/colors.dart';
 import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/snackbar_helper.dart';
-import '../../../core/utils/price_input_formatter.dart';
 import '../../../data/models/appointment_model.dart';
 import '../../../data/models/invoice_model.dart';
 import '../../../data/models/payment_model.dart';
@@ -15,6 +14,52 @@ import '../../../data/repositories/payment_repository.dart';
 import '../../../data/repositories/bank_repository.dart';
 import '../../../data/repositories/invoice_repository.dart';
 import '../../widgets/custom_button.dart';
+
+class PersianPriceInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    if (newValue.text.isEmpty) {
+      return newValue;
+    }
+
+    String clean = newValue.text
+        .replaceAll('٬', '')
+        .replaceAll(',', '')
+        .replaceAllMapped(RegExp('[۰-۹]'), (Match m) {
+      return (m.group(0)!.codeUnitAt(0) - 1776).toString();
+    });
+
+    if (clean.isEmpty) clean = "0";
+
+    final number = int.tryParse(clean) ?? 0;
+    String formatted = _formatWithComma(number.toString());
+    formatted = DateHelper.toPersianDigits(formatted);
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
+  String _formatWithComma(String value) {
+    final buffer = StringBuffer();
+    int digits = 0;
+
+    for (int i = value.length - 1; i >= 0; i--) {
+      buffer.write(value[i]);
+      digits++;
+      if (digits == 3 && i != 0) {
+        buffer.write(',');
+        digits = 0;
+      }
+    }
+
+    return buffer.toString().split('').reversed.join('');
+  }
+}
 
 class PaymentsScreen extends StatefulWidget {
   final AppointmentModel appointment;
@@ -51,40 +96,39 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // بارگذاری بانک‌ها
       _bankRepository.getActiveBanks().listen((banks) {
         if (mounted) {
           setState(() => _banks = banks);
         }
       });
 
-      // بارگذاری دریافتی‌ها (شامل بیعانه نوبت)
-      _paymentRepository.getPaymentsByAppointment(widget.appointment.id).listen((payments) {
+      await _updateDepositInvoiceId();
+
+      _paymentRepository.getPaymentsByAppointment(widget.appointment.id).listen((payments) async {
         if (mounted) {
           setState(() {
             _payments = payments;
             _paidAmount = payments.fold(0, (sum, payment) => sum + payment.amount);
           });
+          await _checkAndUpdateDeliveryDate(payments);
         }
       });
 
-      // بارگذاری مجموع فاکتور
-      final total = await _invoiceRepository.calculateInvoiceTotal(widget.invoice.id);
+      final total = await _invoiceRepository.calculateGrandTotal(widget.invoice.id);
 
       setState(() {
         _totalAmount = total;
         _isLoading = false;
       });
 
-      // اضافه کردن بیعانه به دریافتی‌ها (اگر در نوبت ثبت شده باشد)
       if (widget.appointment.hasDeposit) {
         final hasDepositRecord = await _paymentRepository.hasDeposit(widget.appointment.id);
 
         if (!hasDepositRecord) {
-          // ایجاد رکورد بیعانه از اطلاعات نوبت
           final depositPayment = PaymentModel(
             id: '',
             appointmentId: widget.appointment.id,
+            invoiceId: widget.invoice.id,
             amount: widget.appointment.depositAmount!,
             type: 'deposit',
             paymentDate: widget.appointment.depositReceivedDate!,
@@ -105,20 +149,52 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     }
   }
 
+  Future<void> _updateDepositInvoiceId() async {
+    try {
+      final payments = await _paymentRepository
+          .getPaymentsByAppointment(widget.appointment.id)
+          .first;
+
+      for (var payment in payments) {
+        if (payment.type == 'deposit' && payment.invoiceId == null) {
+          await _paymentRepository.updatePayment(
+            payment.copyWith(invoiceId: widget.invoice.id),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('خطا در آپدیت invoiceId: $e');
+    }
+  }
+
+  Future<void> _checkAndUpdateDeliveryDate(List<PaymentModel> payments) async {
+    try {
+      final isSettled = _paidAmount >= _totalAmount && _totalAmount > 0;
+
+      if (isSettled && payments.isNotEmpty) {
+        final sortedPayments = payments..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+        final lastPaymentDate = sortedPayments.first.paymentDate;
+        final deliveryDate = _invoiceRepository.calculateDefaultDeliveryDate(lastPaymentDate);
+        await _invoiceRepository.updateDeliveryDate(widget.invoice.id, deliveryDate);
+        print('✅ تاریخ تحویل به‌روز شد: $deliveryDate');
+      } else if (!isSettled) {
+        await _invoiceRepository.updateDeliveryDate(widget.invoice.id, null);
+        print('🔄 تاریخ تحویل خالی شد (تسویه نیست)');
+      }
+    } catch (e) {
+      print('⚠️ خطا در بررسی deliveryDate: $e');
+    }
+  }
+
   int get _remainingAmount => _totalAmount - _paidAmount;
 
   Future<void> _showAddPaymentDialog({PaymentModel? payment}) async {
-    final hasDeposit = await _paymentRepository.hasDeposit(widget.appointment.id);
-
-    if (!mounted) return;
-
     final result = await showDialog<PaymentModel>(
       context: context,
       builder: (context) => _AddPaymentDialog(
-        appointment: widget.appointment,
+        invoiceId: widget.appointment.id,
         banks: _banks,
         payment: payment,
-        hasDeposit: hasDeposit,
       ),
     );
 
@@ -135,6 +211,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             SnackBarHelper.showSuccess(context, 'دریافتی با موفقیت ویرایش شد');
           }
         }
+
+        await Future.delayed(const Duration(milliseconds: 500));
       } catch (e) {
         if (mounted) {
           SnackBarHelper.showError(context, e.toString().replaceAll('Exception: ', ''));
@@ -171,6 +249,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         if (mounted) {
           SnackBarHelper.showSuccess(context, 'دریافتی با موفقیت حذف شد');
         }
+
+        await Future.delayed(const Duration(milliseconds: 500));
       } catch (e) {
         if (mounted) {
           SnackBarHelper.showError(context, e.toString().replaceAll('Exception: ', ''));
@@ -179,9 +259,20 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     }
   }
 
-  void _completeAndGoToCalendar() {
-    Navigator.of(context).popUntil((route) => route.isFirst);
-    SnackBarHelper.showSuccess(context, 'عملیات با موفقیت تکمیل شد');
+  Future<void> _handleBack() async {
+    if (_totalAmount == 0 && _payments.isEmpty) {
+      try {
+        await _invoiceRepository.deleteInvoice(widget.invoice.id);
+        print('✅ فاکتور خالی ${widget.invoice.id} حذف شد');
+      } catch (e) {
+        debugPrint('⚠️ خطا در حذف فاکتور خالی: $e');
+      }
+    }
+
+    if (mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      SnackBarHelper.showSuccess(context, 'عملیات با موفقیت تکمیل شد.');
+    }
   }
 
   @override
@@ -210,14 +301,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           ),
         ),
       ),
-      floatingActionButton: _isLoading
-          ? null
-          : FloatingActionButton(
-        onPressed: () => _showAddPaymentDialog(),
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
     );
   }
 
@@ -227,31 +310,21 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-            onPressed: () => Navigator.pop(context),
+          GestureDetector(
+            onTap: () {},
+            child: Container(width: 44, height: 44),
           ),
           const Text(
-            'دریافتی ها',
+            'دریافت وجه',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: AppColors.textPrimary,
             ),
           ),
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: FaIcon(FontAwesomeIcons.user, color: Colors.grey, size: 20),
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.arrow_forward, color: AppColors.textPrimary),
+            onPressed: () => Navigator.pop(context),
           ),
         ],
       ),
@@ -265,87 +338,129 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            widget.appointment.customerName,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                widget.appointment.timeRange,
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              Expanded(
+                child: Text(
+                  widget.appointment.customerName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                  textAlign: TextAlign.right,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              Text(
-                DateHelper.dateTimeToShamsi(widget.appointment.requestedDate),
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  DateHelper.toPersianDigits(widget.appointment.customerMobile ?? ''),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.left,
+                  textDirection: TextDirection.ltr,
+                ),
               ),
             ],
           ),
-          const Divider(height: 16),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),
+                  const SizedBox(width: 6),
+                  Text(
+                    DateHelper.formatPersianDate(Jalali.fromDateTime(widget.appointment.requestedDate)),
+                    style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  const Icon(Icons.access_time, size: 16, color: AppColors.textSecondary),
+                  const SizedBox(width: 6),
+                  Text(
+                    DateHelper.toPersianDigits(widget.appointment.timeRange),
+                    style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'مانده: ${ServiceModel.formatNumber(_remainingAmount)}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: _remainingAmount > 0 ? AppColors.error : AppColors.success,
-                ),
-              ),
-              Text(
-                'مبلغ کل: ${ServiceModel.formatNumber(_totalAmount)}',
+                'جمع کل: ${DateHelper.toPersianDigits(ServiceModel.formatNumber(_totalAmount))}',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textPrimary,
                 ),
               ),
+              Text(
+                'مانده: ${DateHelper.toPersianDigits(ServiceModel.formatNumber(_remainingAmount))}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: _remainingAmount > 0 ? AppColors.success : AppColors.error,
+                ),
+              ),
             ],
           ),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
         ],
       ),
     );
   }
 
   Widget _buildPaymentsList() {
-    if (_payments.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.account_balance_wallet, size: 80, color: Colors.grey.shade300),
-            const SizedBox(height: 16),
-            Text(
-              'دریافتی ثبت نشده است',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-      );
-    }
-
     return ListView.builder(
       padding: const EdgeInsets.all(20),
-      itemCount: _payments.length,
+      itemCount: _payments.isEmpty ? 1 : _payments.length + 1,
       itemBuilder: (context, index) {
+        if (_payments.isEmpty && index == 0) {
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 60),
+              Icon(Icons.account_balance_wallet, size: 80, color: Colors.grey.shade300),
+              const SizedBox(height: 16),
+              Text(
+                'دریافتی ثبت نشده است',
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'برای افزودن دریافتی، دکمه زیر را بزنید',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+              ),
+              const SizedBox(height: 24),
+              _buildAddButton(),
+            ],
+          );
+        }
+
+        if (index == _payments.length) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 16, bottom: 80),
+            child: _buildAddButton(),
+          );
+        }
+
         final payment = _payments[index];
         return _PaymentCard(
           payment: payment,
@@ -356,36 +471,52 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     );
   }
 
+  Widget _buildAddButton() {
+    return Center(
+      child: InkWell(
+        onTap: () => _showAddPaymentDialog(),
+        borderRadius: BorderRadius.circular(50),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add_circle, color: Colors.blue, size: 24),
+              SizedBox(width: 4),
+              Text(
+                'اضافه کردن دریافتی جدید',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomButton() {
     return Container(
       padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // دکمه افزودن (بالای دکمه اصلی)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FloatingActionButton(
-              onPressed: () => _showAddPaymentDialog(),
-              backgroundColor: AppColors.primary,
-              mini: false,
-              child: const Icon(Icons.add, color: Colors.white),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // دکمه اصلی
-          CustomButton(
-            text: 'تکمیل و نمایش لیست تقویم',
-            onPressed: _completeAndGoToCalendar,
-            useGradient: true,
-          ),
-        ],
+      child: ElevatedButton(
+        onPressed: _handleBack,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.grey.shade200,
+          foregroundColor: AppColors.textSecondary,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          minimumSize: const Size(double.infinity, 48),
+        ),
+        child: const Text('تکمیل و نمایش لیست تقویم'),
       ),
     );
   }
 }
 
-// کارت دریافتی
+// 🔥 کلاس _PaymentCard
 class _PaymentCard extends StatefulWidget {
   final PaymentModel payment;
   final VoidCallback onEdit;
@@ -427,12 +558,11 @@ class _PaymentCardState extends State<_PaymentCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // ردیف اول: نوع و مبلغ
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    ServiceModel.formatNumber(widget.payment.amount),
+                    DateHelper.toPersianDigits(ServiceModel.formatNumber(widget.payment.amount)),
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -461,7 +591,6 @@ class _PaymentCardState extends State<_PaymentCard> {
                 ],
               ),
               const SizedBox(height: 8),
-              // ردیف دوم: تاریخ و بانک
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -477,13 +606,12 @@ class _PaymentCardState extends State<_PaymentCard> {
                       style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                     ),
                     Text(
-                      DateHelper.dateTimeToShamsi(widget.payment.paymentDate),
+                      DateHelper.formatPersianDate(Jalali.fromDateTime(widget.payment.paymentDate)),
                       style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
               ),
-              // دکمه‌های عملیاتی
               AnimatedSize(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
@@ -528,18 +656,16 @@ class _PaymentCardState extends State<_PaymentCard> {
   }
 }
 
-// دیالوگ افزودن/ویرایش دریافتی
+// 🔥 کلاس _AddPaymentDialog
 class _AddPaymentDialog extends StatefulWidget {
-  final AppointmentModel appointment;
+  final String invoiceId;
   final List<BankModel> banks;
   final PaymentModel? payment;
-  final bool hasDeposit;
 
   const _AddPaymentDialog({
-    required this.appointment,
+    required this.invoiceId,
     required this.banks,
     this.payment,
-    required this.hasDeposit,
   });
 
   @override
@@ -554,12 +680,15 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
   String _selectedType = 'settlement';
   BankModel? _selectedBank;
   bool _isCashPayment = false;
+  bool _hasDeposit = false;
 
   @override
   void initState() {
     super.initState();
+    _checkForDeposit();
+
     if (widget.payment != null) {
-      _amountController.text = ServiceModel.formatNumber(widget.payment!.amount);
+      _amountController.text = DateHelper.toPersianDigits(ServiceModel.formatNumber(widget.payment!.amount));
       _selectedDate = Jalali.fromDateTime(widget.payment!.paymentDate);
       _selectedType = widget.payment!.type;
       _isCashPayment = widget.payment!.isCash;
@@ -571,6 +700,40 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
         );
       }
     }
+  }
+
+  Future<void> _checkForDeposit() async {
+    try {
+      final paymentRepo = PaymentRepository();
+      final hasDeposit = await paymentRepo.hasDeposit(widget.invoiceId);
+
+      if (mounted) {
+        setState(() {
+          _hasDeposit = hasDeposit;
+
+          if (_hasDeposit && widget.payment == null) {
+            _selectedType = 'settlement';
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _hasDeposit = false);
+      }
+    }
+  }
+
+  int _parsePrice(String text) {
+    if (text.isEmpty) return 0;
+
+    String clean = text
+        .replaceAll('٬', '')
+        .replaceAll(',', '')
+        .replaceAllMapped(RegExp('[۰-۹]'), (Match m) {
+      return (m.group(0)!.codeUnitAt(0) - 1776).toString();
+    });
+
+    return int.tryParse(clean) ?? 0;
   }
 
   @override
@@ -597,7 +760,7 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
                 surface: Colors.white,
                 onSurface: AppColors.textPrimary,
               ),
-              textTheme: Theme.of(context).textTheme.apply(fontFamily: 'Vazir'),
+              textTheme: Theme.of(context).textTheme.apply(fontFamily: 'Vazirmatn'),
             ),
             child: child!,
           ),
@@ -625,8 +788,8 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
 
     final payment = PaymentModel(
       id: widget.payment?.id ?? '',
-      appointmentId: widget.appointment.id,
-      amount: ServiceModel.parsePrice(_amountController.text) ?? 0,
+      appointmentId: widget.invoiceId,
+      amount: _parsePrice(_amountController.text),
       type: _selectedType,
       paymentDate: _selectedDate!.toDateTime(),
       bankId: _isCashPayment ? null : _selectedBank?.id,
@@ -661,15 +824,18 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // مبلغ
                 TextFormField(
                   controller: _amountController,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.right,
-                  inputFormatters: [PriceInputFormatter()],
+                  inputFormatters: [PersianPriceInputFormatter()],
                   decoration: InputDecoration(
                     hintText: 'مبلغ دریافتی',
-                    prefixText: 'ریال',
+                    suffixText: 'تومان',
+                    suffixStyle: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
@@ -678,51 +844,59 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
                     ),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return 'مبلغ اجباری است';
+                    if (value == null || value.isEmpty) return 'مبلغ دریافتی اجباری است!';
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
-                // نوع دریافت
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedType,
-                      isExpanded: true,
-                      icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
-                      items: [
-                        DropdownMenuItem(
-                          value: 'deposit',
-                          enabled: !widget.hasDeposit || widget.payment?.type == 'deposit',
-                          child: Text(
-                            'بیعانه',
-                            style: TextStyle(
-                              color: !widget.hasDeposit || widget.payment?.type == 'deposit'
-                                  ? AppColors.textPrimary
-                                  : AppColors.textLight,
-                            ),
-                          ),
-                        ),
-                        const DropdownMenuItem(
-                          value: 'settlement',
-                          child: Text('تسویه'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => _selectedType = value);
-                        }
-                      },
+                if (!_hasDeposit || widget.payment?.type == 'deposit')
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedType,
+                        isExpanded: true,
+                        icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary),
+                        items: const [
+                          DropdownMenuItem(value: 'deposit', child: Text('بیعانه')),
+                          DropdownMenuItem(value: 'settlement', child: Text('تسویه')),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _selectedType = value);
+                          }
+                        },
+                      ),
                     ),
                   ),
-                ),
+                if (_hasDeposit && widget.payment?.type != 'deposit')
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.info.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.info.withOpacity(0.3)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info_outline, color: AppColors.info, size: 20),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'این فاکتور قبلا بیعانه دریافت کرده است.',
+                            style: TextStyle(fontSize: 13, color: AppColors.info),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 16),
+
                 // تاریخ دریافت
                 InkWell(
                   onTap: _selectDate,
@@ -736,11 +910,11 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Icon(Icons.arrow_drop_down, color: AppColors.primary),
                         Text(
                           _selectedDate != null
-                              ? _selectedDate!.formatCompactDate()
+                              ? DateHelper.formatPersianDate(_selectedDate!)
                               : 'تاریخ دریافت',
+                          textAlign: TextAlign.right,
                           style: TextStyle(
                             fontSize: 14,
                             color: _selectedDate != null
@@ -748,37 +922,15 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
                                 : AppColors.textLight,
                           ),
                         ),
+                        const Spacer(),
+                        const Icon(Icons.calendar_today, color: AppColors.primary),
                       ],
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 16),
-                // چک‌باکس نقدی
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      const Text('دریافت نقدی', style: TextStyle(fontSize: 14)),
-                      Checkbox(
-                        value: _isCashPayment,
-                        activeColor: AppColors.primary,
-                        onChanged: (value) {
-                          setState(() {
-                            _isCashPayment = value ?? false;
-                            if (_isCashPayment) _selectedBank = null;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
+
                 // بانک
                 Opacity(
                   opacity: _isCashPayment ? 0.5 : 1.0,
@@ -795,7 +947,7 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
                         child: DropdownButton<BankModel>(
                           value: _selectedBank,
                           isExpanded: true,
-                          icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                          icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary),
                           hint: const Text('انتخاب بانک', textAlign: TextAlign.right),
                           items: widget.banks.map((bank) {
                             return DropdownMenuItem(
@@ -813,21 +965,54 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
                     ),
                   ),
                 ),
+
+
+                // چک‌باکس نقدی
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      Checkbox(
+                        value: _isCashPayment,
+                        activeColor: AppColors.primary,
+                        onChanged: (value) {
+                          setState(() {
+                            _isCashPayment = value ?? false;
+                            if (_isCashPayment) _selectedBank = null;
+                          });
+                        },
+                      ),
+                      const Text(
+                        'بیعانه را به صورت نقدی دریافت کردم.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
                 const SizedBox(height: 24),
+
                 Row(
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('انصراف'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
                     Expanded(
                       child: CustomButton(
                         text: widget.payment == null ? 'ثبت' : 'ویرایش',
                         onPressed: _handleSubmit,
                         useGradient: true,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('انصراف'),
                       ),
                     ),
                   ],

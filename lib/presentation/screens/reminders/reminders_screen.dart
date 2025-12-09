@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shamsi_date/shamsi_date.dart';
+import 'package:persian_datetime_picker/persian_datetime_picker.dart';
 import '../../../core/constants/colors.dart';
 import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/snackbar_helper.dart';
@@ -9,7 +10,17 @@ import '../../../data/repositories/customer_repository.dart';
 import '../../widgets/empty_state_widget.dart';
 import '../invoices/invoice_preview_screen.dart';
 
-// 🔥 استفاده از همون enum که در financial_report استفاده شده
+// فیلتر یادآوری
+enum ReminderFilter {
+  overdue('رد شده'),
+  editList('لیست ادیت'),
+  all('همه');
+
+  final String label;
+  const ReminderFilter(this.label);
+}
+
+// وضعیت فاکتور
 enum InvoiceStatus {
   editing('درصف ویرایش'),
   confirmed('تایید مشتری'),
@@ -32,6 +43,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
   final InvoiceRepository _invoiceRepository = InvoiceRepository();
   Stream<List<Map<String, dynamic>>>? _invoicesStream;
   String? _expandedInvoiceId;
+  ReminderFilter _selectedFilter = ReminderFilter.all; // 🔥 پیش‌فرض: همه
 
   @override
   void initState() {
@@ -106,57 +118,223 @@ class _RemindersScreenState extends State<RemindersScreen> {
         }
 
         final allData = snapshot.data ?? [];
+        final today = DateTime.now();
 
-        print('📊 تعداد کل فاکتورهای تسویه شده: ${allData.length}');
-        for (var data in allData) {
-          final invoice = data['invoice'] as InvoiceModel;
-          final lastPaymentDate = data['lastPaymentDate'] as DateTime;
-          print('  - فاکتور ${invoice.invoiceNumber}: آخرین پرداخت = $lastPaymentDate');
-        }
+        // فیلتر بر اساس انتخاب کاربر
+        List<Map<String, dynamic>> filteredData = [];
 
-        final reminders = allData.where((data) {
-          final lastPaymentDate = data['lastPaymentDate'] as DateTime;
-          final today = DateTime.now();
-          final daysSincePayment = today.difference(lastPaymentDate).inDays;
-
-          final invoice = data['invoice'] as InvoiceModel;
-          print('📅 فاکتور ${invoice.invoiceNumber}: $daysSincePayment روز از آخرین پرداخت گذشته');
-
-          return daysSincePayment >= 10;
-        }).toList();
-
-        reminders.sort((a, b) {
-          final dateA = a['lastPaymentDate'] as DateTime;
-          final dateB = b['lastPaymentDate'] as DateTime;
-          final daysA = _calculateRemainingDays(dateA);
-          final daysB = _calculateRemainingDays(dateB);
-          return daysA.compareTo(daysB);
-        });
-
-        if (reminders.isEmpty) {
-          return const EmptyStateWidget(
-            icon: Icons.notifications_active,
-            message: 'فاکتوری نزدیک به تحویل نیست',
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(20),
-          itemCount: reminders.length,
-          itemBuilder: (context, index) {
-            final data = reminders[index];
+        if (_selectedFilter == ReminderFilter.overdue) {
+          // فقط رد شده‌ها
+          filteredData = allData.where((data) {
             final invoice = data['invoice'] as InvoiceModel;
-            final lastPaymentDate = data['lastPaymentDate'] as DateTime;
-            return _buildReminderCard(invoice, lastPaymentDate);
-          },
+            return invoice.deliveryDate != null &&
+                invoice.deliveryDate!.isBefore(DateTime(today.year, today.month, today.day));
+          }).toList();
+
+          // 🔥 سورت: رد شده‌ها - از قدیمی‌تر به جدیدتر (بیشتر گذشته بالاتر)
+          filteredData.sort((a, b) {
+            final dateA = (a['invoice'] as InvoiceModel).deliveryDate!;
+            final dateB = (b['invoice'] as InvoiceModel).deliveryDate!;
+            return dateA.compareTo(dateB); // قدیمی‌تر بالاتر
+          });
+        } else if (_selectedFilter == ReminderFilter.editList) {
+          // فقط لیست ادیت
+          filteredData = allData.where((data) {
+            final invoice = data['invoice'] as InvoiceModel;
+            return invoice.deliveryDate != null &&
+                !invoice.deliveryDate!.isBefore(DateTime(today.year, today.month, today.day));
+          }).toList();
+
+          // 🔥 سورت: لیست ادیت - از نزدیک به دور (نزدیکتر به امروز بالاتر)
+          filteredData.sort((a, b) {
+            final dateA = (a['invoice'] as InvoiceModel).deliveryDate!;
+            final dateB = (b['invoice'] as InvoiceModel).deliveryDate!;
+            return dateA.compareTo(dateB); // نزدیکتر بالاتر
+          });
+        } else {
+          // 🔥 همه: ابتدا رد شده‌ها (از قدیمی‌تر) بعد لیست ادیت (از نزدیک‌تر)
+          final overdue = allData.where((data) {
+            final invoice = data['invoice'] as InvoiceModel;
+            return invoice.deliveryDate != null &&
+                invoice.deliveryDate!.isBefore(DateTime(today.year, today.month, today.day));
+          }).toList();
+
+          final editList = allData.where((data) {
+            final invoice = data['invoice'] as InvoiceModel;
+            return invoice.deliveryDate != null &&
+                !invoice.deliveryDate!.isBefore(DateTime(today.year, today.month, today.day));
+          }).toList();
+
+          // سورت رد شده‌ها: از قدیمی به جدید
+          overdue.sort((a, b) {
+            final dateA = (a['invoice'] as InvoiceModel).deliveryDate!;
+            final dateB = (b['invoice'] as InvoiceModel).deliveryDate!;
+            return dateA.compareTo(dateB);
+          });
+
+          // سورت لیست ادیت: از نزدیک به دور
+          editList.sort((a, b) {
+            final dateA = (a['invoice'] as InvoiceModel).deliveryDate!;
+            final dateB = (b['invoice'] as InvoiceModel).deliveryDate!;
+            return dateA.compareTo(dateB);
+          });
+
+          // ترکیب: ابتدا رد شده‌ها، بعد لیست ادیت
+          filteredData = [...overdue, ...editList];
+        }
+
+        // محاسبه آمار
+        final editListCount = allData.where((data) {
+          final invoice = data['invoice'] as InvoiceModel;
+          return invoice.deliveryDate != null &&
+              !invoice.deliveryDate!.isBefore(DateTime(today.year, today.month, today.day));
+        }).length;
+
+        final overdueCount = allData.where((data) {
+          final invoice = data['invoice'] as InvoiceModel;
+          return invoice.deliveryDate != null &&
+              invoice.deliveryDate!.isBefore(DateTime(today.year, today.month, today.day));
+        }).length;
+
+        return Column(
+          children: [
+            // 🔥 آمار به عنوان فیلتر
+            _buildStatsFilter(editListCount, overdueCount, allData.length),
+
+            // لیست
+            Expanded(
+              child: filteredData.isEmpty
+                  ? EmptyStateWidget(
+                icon: Icons.notifications_active,
+                message: _selectedFilter == ReminderFilter.overdue
+                    ? 'رکورد رد شده‌ای وجود ندارد!'
+                    : _selectedFilter == ReminderFilter.editList
+                    ? 'رکوردی در لیست ادیت نیست!'
+                    : 'فاکتوری نزدیک به تحویل نیست!',
+              )
+                  : ListView.builder(
+                padding: const EdgeInsets.all(20),
+                itemCount: filteredData.length,
+                itemBuilder: (context, index) {
+                  final data = filteredData[index];
+                  final invoice = data['invoice'] as InvoiceModel;
+                  final lastPaymentDate = data['lastPaymentDate'] as DateTime;
+                  return _buildReminderCard(invoice, lastPaymentDate);
+                },
+              ),
+            ),
+          ],
         );
       },
     );
   }
 
+
+  // 🔥 جدید: آمار به عنوان فیلتر (سه گزینه کنار هم)
+  Widget _buildStatsFilter(int editListCount, int overdueCount, int allCount) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.4),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          //BoxShadow(
+          //  color: Colors.black.withOpacity(0.05),
+          //  blurRadius: 10,
+          //  offset: const Offset(0, 3),
+          //),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildStatItem(
+              label: 'رد شده',
+              value: overdueCount,
+              selected: _selectedFilter == ReminderFilter.overdue,
+              onTap: () => setState(() => _selectedFilter = ReminderFilter.overdue),
+            ),
+          ),
+          _buildDivider(),
+          Expanded(
+            child: _buildStatItem(
+              label: 'همه',
+              value: allCount,
+              selected: _selectedFilter == ReminderFilter.all,
+              onTap: () => setState(() => _selectedFilter = ReminderFilter.all),
+            ),
+          ),
+          _buildDivider(),
+          Expanded(
+            child: _buildStatItem(
+              label: 'لیست ادیت',
+              value: editListCount,
+              selected: _selectedFilter == ReminderFilter.editList,
+              onTap: () => setState(() => _selectedFilter = ReminderFilter.editList),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
+  Widget _buildStatItem({
+    required String label,
+    required int value,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: selected ? AppColors.primary.withOpacity(0.08) : Colors.transparent,
+        ),
+        child: Column(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                color: selected ? AppColors.primary : Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              DateHelper.toPersianDigits(value.toString()),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: selected ? AppColors.primary : AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  Widget _buildDivider() {
+    return Container(
+      width: 1,
+      height: 25,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      color: Colors.grey.shade300,
+    );
+  }
+
+
   Widget _buildReminderCard(InvoiceModel invoice, DateTime lastPaymentDate) {
-    final remainingDays = _calculateRemainingDays(lastPaymentDate);
-    final isOverdue = remainingDays < 0;
+    final today = DateTime.now();
+    final deliveryDate = invoice.deliveryDate!;
+    final daysRemaining = deliveryDate.difference(DateTime(today.year, today.month, today.day)).inDays;
+    final isOverdue = daysRemaining < 0;
 
     return GestureDetector(
       onTap: () {
@@ -176,7 +354,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isOverdue ? AppColors.error : AppColors.primary,
-            width: 2,
+            width: 1,
           ),
           boxShadow: [
             BoxShadow(
@@ -189,10 +367,23 @@ class _RemindersScreenState extends State<RemindersScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ردیف اول: نام مشتری و Badge
               Row(
                 children: [
+                  Expanded(
+                    child: Text(
+                      invoice.customerName,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
@@ -209,7 +400,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          _formatRemainingDays(remainingDays),
+                          _formatRemainingDays(daysRemaining),
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -219,22 +410,12 @@ class _RemindersScreenState extends State<RemindersScreen> {
                       ],
                     ),
                   ),
-                  Expanded(
-                    child: Text(
-                      invoice.customerName,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 24),
                 ],
               ),
+
               const SizedBox(height: 8),
+
+              // ردیف دوم: تاریخ نوبت و تسویه
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -245,10 +426,26 @@ class _RemindersScreenState extends State<RemindersScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    // تاریخ نوبت
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.payment, size: 14, color: AppColors.textSecondary),
+                        const Icon(Icons.camera_alt, size: 14, color: AppColors.textSecondary),
+                        const SizedBox(width: 4),
+                        Text(
+                          DateHelper.dateTimeToShamsi(invoice.invoiceDate),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),                      ],
+                    ),
+
+                    // تاریخ تسویه
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.credit_card, size: 14, color: AppColors.textSecondary),
                         const SizedBox(width: 4),
                         Text(
                           DateHelper.dateTimeToShamsi(lastPaymentDate),
@@ -259,23 +456,42 @@ class _RemindersScreenState extends State<RemindersScreen> {
                         ),
                       ],
                     ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          DateHelper.dateTimeToShamsi(invoice.invoiceDate),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(Icons.calendar_today, size: 14, color: AppColors.textSecondary),
-                      ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // ردیف سوم: تاریخ تحویل
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isOverdue ? AppColors.error.withOpacity(0.1) : AppColors.info.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.local_shipping,
+                      size: 16,
+                      color: isOverdue ? AppColors.error : AppColors.info,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'تاریخ تحویل: ${DateHelper.dateTimeToShamsi(deliveryDate)}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: isOverdue ? AppColors.error : AppColors.info,
+                      ),
                     ),
                   ],
                 ),
               ),
+
+              // 🔥 دکمه‌های عملیاتی (با حل مشکل overflow)
               AnimatedSize(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
@@ -284,13 +500,16 @@ class _RemindersScreenState extends State<RemindersScreen> {
                     ? Column(
                   children: [
                     const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                    // 🔥 Wrap به جای Row برای جلوگیری از overflow
+                    Wrap(
+                      alignment: WrapAlignment.start,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         TextButton.icon(
-                          onPressed: () => _handleChangeStatus(invoice),
-                          icon: const Icon(Icons.edit, size: 16),
-                          label: const Text('وضعیت'),
+                          onPressed: () => _handleEditDeliveryDate(invoice),
+                          icon: const Icon(Icons.edit_calendar, size: 16),
+                          label: const Text('ویرایش'),
                           style: TextButton.styleFrom(
                             foregroundColor: AppColors.primary,
                             padding: const EdgeInsets.symmetric(
@@ -299,7 +518,18 @@ class _RemindersScreenState extends State<RemindersScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          onPressed: () => _handleChangeStatus(invoice),
+                          icon: const Icon(Icons.edit, size: 16),
+                          label: const Text('وضعیت'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.info,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                        ),
                         TextButton.icon(
                           onPressed: () => _handleViewInvoice(invoice),
                           icon: const Icon(Icons.visibility, size: 16),
@@ -325,19 +555,67 @@ class _RemindersScreenState extends State<RemindersScreen> {
     );
   }
 
-  int _calculateRemainingDays(DateTime lastPaymentDate) {
-    final deliveryDate = lastPaymentDate.add(const Duration(days: 14));
-    final today = DateTime.now();
-    return deliveryDate.difference(today).inDays;
-  }
-
   String _formatRemainingDays(int days) {
     if (days < 0) {
       return '${DateHelper.toPersianDigits(days.abs().toString())} روز تاخیر';
     } else if (days == 0) {
-      return 'امروز تحویل';
+      return 'تحویل امروز';
     } else {
       return '${DateHelper.toPersianDigits(days.toString())} روز مانده';
+    }
+  }
+
+  void _handleEditDeliveryDate(InvoiceModel invoice) async {
+    final currentDate = invoice.deliveryDate != null
+        ? Jalali.fromDateTime(invoice.deliveryDate!)
+        : Jalali.now();
+
+    final picked = await showPersianDatePicker(
+      context: context,
+      initialDate: currentDate,
+      firstDate: Jalali.now().addDays(-365),
+      lastDate: Jalali.now().addYears(1),
+      locale: const Locale('fa', 'IR'),
+      builder: (context, child) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: ColorScheme.light(
+                primary: AppColors.primary,
+                onPrimary: Colors.white,
+                surface: Colors.white,
+                onSurface: AppColors.textPrimary,
+              ),
+              textTheme: Theme.of(context).textTheme.apply(fontFamily: 'Vazirmatn'),
+            ),
+            child: child!,
+          ),
+        );
+      },
+    );
+
+    if (picked != null) {
+      try {
+        await _invoiceRepository.updateDeliveryDate(
+          invoice.id,
+          picked.toDateTime(),
+        );
+
+        if (mounted) {
+          SnackBarHelper.showSuccess(
+            context,
+            'تاریخ تحویل به ${DateHelper.formatPersianDate(picked)} تغییر یافت',
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          SnackBarHelper.showError(
+            context,
+            e.toString().replaceAll('Exception: ', ''),
+          );
+        }
+      }
     }
   }
 
@@ -402,9 +680,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
         if (mounted) {
           SnackBarHelper.showSuccess(context, 'وضعیت به "${selectedStatus.label}" تغییر یافت');
-
-          // 🔥 اگر وضعیت از "editing" تغییر کرد، stream خودش refresh می‌شه
-          // و فاکتور از لیست یادآوری حذف می‌شه
         }
       } catch (e) {
         if (mounted) {
@@ -418,7 +693,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
   }
 }
 
-// 🔥 دیالوگ تغییر وضعیت
+// دیالوگ تغییر وضعیت
 class _ChangeStatusDialog extends StatefulWidget {
   final String? currentStatus;
 
@@ -434,7 +709,6 @@ class _ChangeStatusDialogState extends State<_ChangeStatusDialog> {
   @override
   void initState() {
     super.initState();
-    // یافتن وضعیت فعلی
     if (widget.currentStatus != null) {
       try {
         _selectedStatus = InvoiceStatus.values.firstWhere(
@@ -469,7 +743,6 @@ class _ChangeStatusDialogState extends State<_ChangeStatusDialog> {
             ),
             const SizedBox(height: 24),
 
-            // لیست وضعیت‌ها با Radio
             ...InvoiceStatus.values.map((status) {
               return ListTile(
                 title: Text(
@@ -493,13 +766,6 @@ class _ChangeStatusDialogState extends State<_ChangeStatusDialog> {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('انصراف'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
                   child: ElevatedButton(
                     onPressed: () {
                       if (_selectedStatus != null) {
@@ -515,6 +781,13 @@ class _ChangeStatusDialogState extends State<_ChangeStatusDialog> {
                       ),
                     ),
                     child: const Text('ثبت'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('انصراف'),
                   ),
                 ),
               ],
