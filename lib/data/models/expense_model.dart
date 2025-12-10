@@ -43,9 +43,20 @@ class ExpenseModel {
   }
 
   // تبدیل رشته قیمت با کاما به عدد
+  // تبدیل رشته قیمت با کاما به عدد
   static int? parsePrice(String priceStr) {
     if (priceStr.isEmpty) return null;
-    final cleaned = priceStr.replaceAll(',', '');
+
+    // حذف کاما (فارسی و انگلیسی)
+    String cleaned = priceStr
+        .replaceAll('٬', '')  // کاما فارسی
+        .replaceAll(',', ''); // کاما انگلیسی
+
+    // تبدیل اعداد فارسی به انگلیسی
+    cleaned = cleaned.replaceAllMapped(RegExp('[۰-۹]'), (Match m) {
+      return (m.group(0)!.codeUnitAt(0) - 1776).toString();
+    });
+
     return int.tryParse(cleaned);
   }
 

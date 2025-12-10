@@ -30,8 +30,8 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
     super.initState();
     _nameController = TextEditingController(text: widget.expense?.expenseName ?? '');
     _priceController = TextEditingController(
-      text: widget.expense != null
-          ? DateHelper.toPersianDigits(widget.expense!.formattedPrice ?? '') // ← تبدیل به فارسی
+      text: widget.expense?.price != null
+          ? DateHelper.toPersianDigits(widget.expense!.price.toString())
           : '',
     );
   }

@@ -232,63 +232,77 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               _buildHeader(),
               Expanded(
-                child: SingleChildScrollView(
+                child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Wrap(
-                    alignment: WrapAlignment.end,
-                    spacing: 16,
-                    runSpacing: 16,
-                    children: [
-                      DashboardCard(
-                        title: 'ثبت نوبت',
-                        svgAsset: 'assets/images/icons/camera-clock.svg',
-                        backgroundColor: const Color(0xFF9C7DD8),
-                        badgeCount: receivedAppointmentsCount,
-                        onTap: _navigateToAppointments,
-                      ),
-                      DashboardCard(
-                        title: 'تقویم',
-                        svgAsset: 'assets/images/icons/calendar.svg',
-                        backgroundColor: const Color(0xFF5CADD8),
-                        onTap: _navigateToCalendar,
-                      ),
-                      DashboardCard(
-                        title: 'صدور سند',
-                        svgAsset: 'assets/images/icons/file-invoice-dollar.svg',
-                        backgroundColor: const Color(0xFFFF9F6E),
-                        onTap: _navigateToInvoice,
-                      ),
-                      DashboardCard(
-                        title: 'صورت حسابها',
-                        svgAsset: 'assets/images/icons/sheet-plastic.svg',
-                        backgroundColor: const Color(0xFFE89CC2),
-                        onTap: _navigateToInvoicesList,
-                      ),
-                      DashboardCard(
-                        title: 'ارسال فرم',
-                        svgAsset: 'assets/images/icons/link-horizontal.svg',
-                        backgroundColor: const Color(0xFF7DD8B8),
-                        onTap: _navigateToFormSharing,
-                      ),
-                      DashboardCard(
-                        title: 'اطلاعات پایه',
-                        svgAsset: 'assets/images/icons/gear-complex.svg',
-                        backgroundColor: const Color(0xFF8BA3D8),
-                        onTap: _navigateToBaseData,
-                      ),
-                      DashboardCard(
-                        title: 'یادآوری',
-                        svgAsset: 'assets/images/icons/bell.svg',
-                        backgroundColor: const Color(0xFFFFC107),
-                        onTap: _navigateToReminders,
-                      ),
-                      DashboardCard(
-                        title: 'گزارشات',
-                        svgAsset: 'assets/images/icons/chart-line.svg',
-                        backgroundColor: const Color(0xFF9E9E9E),
-                        onTap: _navigateToReports,
-                      ),
-                    ],
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // محاسبه تعداد ستون بر اساس عرض صفحه
+                      int crossAxisCount = 2;
+                      if (constraints.maxWidth > 600) {
+                        crossAxisCount = 3; // تبلت
+                      }
+                      if (constraints.maxWidth > 900) {
+                        crossAxisCount = 4; // تبلت بزرگ / دسکتاپ
+                      }
+
+                      return GridView.count(
+                        crossAxisCount: crossAxisCount,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.0,
+                        children: [
+                          DashboardCard(
+                            title: 'ثبت نوبت',
+                            svgAsset: 'assets/images/icons/camera-clock.svg',
+                            backgroundColor: const Color(0xFF9C7DD8),
+                            badgeCount: receivedAppointmentsCount,
+                            onTap: _navigateToAppointments,
+                          ),
+                          DashboardCard(
+                            title: 'تقویم',
+                            svgAsset: 'assets/images/icons/calendar.svg',
+                            backgroundColor: const Color(0xFF5CADD8),
+                            onTap: _navigateToCalendar,
+                          ),
+                          DashboardCard(
+                            title: 'صدور سند',
+                            svgAsset: 'assets/images/icons/file-invoice-dollar.svg',
+                            backgroundColor: const Color(0xFFFF9F6E),
+                            onTap: _navigateToInvoice,
+                          ),
+                          DashboardCard(
+                            title: 'صورت حسابها',
+                            svgAsset: 'assets/images/icons/sheet-plastic.svg',
+                            backgroundColor: const Color(0xFFE89CC2),
+                            onTap: _navigateToInvoicesList,
+                          ),
+                          DashboardCard(
+                            title: 'ارسال فرم',
+                            svgAsset: 'assets/images/icons/link-horizontal.svg',
+                            backgroundColor: const Color(0xFF7DD8B8),
+                            onTap: _navigateToFormSharing,
+                          ),
+                          DashboardCard(
+                            title: 'اطلاعات پایه',
+                            svgAsset: 'assets/images/icons/gear-complex.svg',
+                            backgroundColor: const Color(0xFF8BA3D8),
+                            onTap: _navigateToBaseData,
+                          ),
+                          DashboardCard(
+                            title: 'یادآوری',
+                            svgAsset: 'assets/images/icons/bell.svg',
+                            backgroundColor: const Color(0xFFFFC107),
+                            onTap: _navigateToReminders,
+                          ),
+                          DashboardCard(
+                            title: 'گزارشات',
+                            svgAsset: 'assets/images/icons/chart-line.svg',
+                            backgroundColor: const Color(0xFF9E9E9E),
+                            onTap: _navigateToReports,
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),

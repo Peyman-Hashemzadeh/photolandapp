@@ -37,7 +37,7 @@ class ReportsScreen extends StatelessWidget {
                       _buildReportCard(
                         context: context,
                         title: 'گزارش عملکرد ماهانه',
-                        svgAsset: 'assets/images/icons/calendar.svg',
+                        svgAsset: 'assets/images/icons/calendar-users.svg',
                         backgroundColor: const Color(0xFF5CADD8),
                         onTap: () {
                           Navigator.push(
@@ -51,7 +51,7 @@ class ReportsScreen extends StatelessWidget {
                       _buildReportCard(
                         context: context,
                         title: 'گزارش عملکرد سالانه',
-                        svgAsset: 'assets/images/icons/calendar.svg',
+                        svgAsset: 'assets/images/icons/calendar-star.svg',
                         backgroundColor: const Color(0xFF8BA3D8),
                         onTap: () {
                           Navigator.push(
@@ -65,7 +65,7 @@ class ReportsScreen extends StatelessWidget {
                       _buildReportCard(
                         context: context,
                         title: 'گزارش عملکرد مشتری',
-                        svgAsset: 'assets/images/icons/gear-complex.svg',
+                        svgAsset: 'assets/images/icons/chart-user.svg',
                         backgroundColor: const Color(0xFF9C7DD8),
                         onTap: () {
                           Navigator.push(
@@ -79,7 +79,7 @@ class ReportsScreen extends StatelessWidget {
                       _buildReportCard(
                         context: context,
                         title: 'گزارش ریز مشتری',
-                        svgAsset: 'assets/images/icons/gear-complex.svg', // یا آیکون دیگری
+                        svgAsset: 'assets/images/icons/clipboard-user.svg', // یا آیکون دیگری
                         backgroundColor: const Color(0xFFE89CC2),
                         onTap: () {
                           Navigator.push(
@@ -93,7 +93,7 @@ class ReportsScreen extends StatelessWidget {
                       _buildReportCard(
                         context: context,
                         title: 'گزارش عملکرد خدمات',
-                        svgAsset: 'assets/images/icons/chart-line.svg',
+                        svgAsset: 'assets/images/icons/camera.svg',
                         backgroundColor: const Color(0xFF7DD8B8),
                         onTap: () {
                           Navigator.push(
@@ -107,8 +107,8 @@ class ReportsScreen extends StatelessWidget {
                       _buildReportCard(
                         context: context,
                         title: 'برترین‌ها',
-                        svgAsset: 'assets/images/icons/chart-line.svg',
-                        backgroundColor: const Color(0xFFFFC107),
+                        svgAsset: 'assets/images/icons/trophy.svg',
+                        backgroundColor: const Color(0xFFECC454),
                         onTap: () {
                           Navigator.push(
                             context,

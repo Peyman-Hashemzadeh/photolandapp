@@ -102,9 +102,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         }
       });
 
-      await _updateDepositInvoiceId();
-
-      _paymentRepository.getPaymentsByAppointment(widget.appointment.id).listen((payments) async {
+      // 🔥 اصلاح شده: استفاده از invoiceId
+      _paymentRepository.getPaymentsByInvoice(widget.invoice.id).listen((payments) async {
         if (mounted) {
           setState(() {
             _payments = payments;
@@ -121,26 +120,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         _isLoading = false;
       });
 
-      if (widget.appointment.hasDeposit) {
-        final hasDepositRecord = await _paymentRepository.hasDeposit(widget.appointment.id);
-
-        if (!hasDepositRecord) {
-          final depositPayment = PaymentModel(
-            id: '',
-            appointmentId: widget.appointment.id,
-            invoiceId: widget.invoice.id,
-            amount: widget.appointment.depositAmount!,
-            type: 'deposit',
-            paymentDate: widget.appointment.depositReceivedDate!,
-            bankId: widget.appointment.bankId,
-            bankName: widget.appointment.bankName,
-            isCash: widget.appointment.bankName == 'نقدی',
-            createdAt: DateTime.now(),
-          );
-
-          await _paymentRepository.addPayment(depositPayment);
-        }
-      }
+      // 🔥 حذف شد: دیگه نیازی به چک کردن بیعانه نداریم
+      // چون همه پرداخت‌ها با invoiceId ثبت می‌شن
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -192,7 +173,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     final result = await showDialog<PaymentModel>(
       context: context,
       builder: (context) => _AddPaymentDialog(
-        invoiceId: widget.appointment.id,
+        appointmentId: widget.appointment.id,  // ✅ برای چک کردن deposit
+        invoiceId: widget.invoice.id,          // ✅ برای ذخیره
         banks: _banks,
         payment: payment,
       ),
@@ -658,11 +640,13 @@ class _PaymentCardState extends State<_PaymentCard> {
 
 // 🔥 کلاس _AddPaymentDialog
 class _AddPaymentDialog extends StatefulWidget {
-  final String invoiceId;
+  final String appointmentId;  // 🔥 برای چک deposit
+  final String invoiceId;      // 🔥 برای ذخیره
   final List<BankModel> banks;
   final PaymentModel? payment;
 
   const _AddPaymentDialog({
+    required this.appointmentId,
     required this.invoiceId,
     required this.banks,
     this.payment,
@@ -705,7 +689,7 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
   Future<void> _checkForDeposit() async {
     try {
       final paymentRepo = PaymentRepository();
-      final hasDeposit = await paymentRepo.hasDeposit(widget.invoiceId);
+      final hasDeposit = await paymentRepo.hasDeposit(widget.appointmentId);
 
       if (mounted) {
         setState(() {
@@ -788,7 +772,8 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
 
     final payment = PaymentModel(
       id: widget.payment?.id ?? '',
-      appointmentId: widget.invoiceId,
+      appointmentId: widget.appointmentId,
+      invoiceId: widget.invoiceId,
       amount: _parsePrice(_amountController.text),
       type: _selectedType,
       paymentDate: _selectedDate!.toDateTime(),

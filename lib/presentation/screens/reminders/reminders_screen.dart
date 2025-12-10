@@ -6,6 +6,7 @@ import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../data/models/invoice_model.dart';
 import '../../../data/repositories/invoice_repository.dart';
+import '../../../data/repositories/payment_repository.dart';
 import '../../../data/repositories/customer_repository.dart';
 import '../../widgets/empty_state_widget.dart';
 import '../invoices/invoice_preview_screen.dart';
@@ -41,9 +42,11 @@ class RemindersScreen extends StatefulWidget {
 
 class _RemindersScreenState extends State<RemindersScreen> {
   final InvoiceRepository _invoiceRepository = InvoiceRepository();
+  final PaymentRepository _paymentRepository = PaymentRepository();
+
   Stream<List<Map<String, dynamic>>>? _invoicesStream;
   String? _expandedInvoiceId;
-  ReminderFilter _selectedFilter = ReminderFilter.all; // 🔥 پیش‌فرض: همه
+  ReminderFilter _selectedFilter = ReminderFilter.all;
 
   @override
   void initState() {
@@ -634,6 +637,11 @@ class _RemindersScreenState extends State<RemindersScreen> {
       final customerRepository = CustomerRepository();
       final customer = await customerRepository.getCustomerById(invoice.customerId);
 
+      // 🔥 محاسبه مبلغ پرداختی با تایپ صحیح
+      final payments = await _paymentRepository.getPaymentsByInvoice(invoice.id).first;
+      final paidAmount = payments.fold<int>(0, (sum, payment) => sum + payment.amount);
+      final remainingAmount = grandTotal - paidAmount;
+
       if (!mounted) return;
       Navigator.pop(context);
 
@@ -653,8 +661,8 @@ class _RemindersScreenState extends State<RemindersScreen> {
             shippingCost: invoice.shippingCost ?? 0,
             discount: invoice.discount ?? 0,
             grandTotal: grandTotal,
-            paidAmount: 0,
-            remainingAmount: grandTotal,
+            paidAmount: paidAmount,
+            remainingAmount: remainingAmount,
           ),
         ),
       );

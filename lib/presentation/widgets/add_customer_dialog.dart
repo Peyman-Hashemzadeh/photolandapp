@@ -6,38 +6,6 @@ import '../../../data/models/customer_model.dart';
 import 'custom_textfield.dart';
 import 'custom_button.dart';
 
-
-class PersianDigitsInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue,
-      TextEditingValue newValue,
-      ) {
-    // فقط digits رو نگه دار (انگلیسی یا فارسی)
-    final filtered = newValue.text.replaceAll(RegExp(r'[^0-9۰-۹]'), '');
-
-    if (filtered.isEmpty) return newValue;
-
-    // تبدیل اعداد انگلیسی به فارسی
-    String persian = filtered;
-    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-    for (int i = 0; i < 10; i++) {
-      persian = persian.replaceAll(english[i], persianDigits[i]);
-    }
-
-    // اگر طول بیشتر از 11 شد، کوتاه کن
-    if (persian.length > 11) {
-      persian = persian.substring(0, 11);
-    }
-
-    return TextEditingValue(
-      text: persian,
-      selection: TextSelection.collapsed(offset: persian.length),
-    );
-  }
-}
-
 class AddCustomerDialog extends StatefulWidget {
   final CustomerModel? customer; // اگه null باشه یعنی افزودن، وگرنه ویرایش
 
@@ -148,7 +116,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
                   keyboardType: TextInputType.phone,
                   maxLength: 11,
                   inputFormatters: [
-                    PersianDigitsInputFormatter(),
+                    FilteringTextInputFormatter.digitsOnly,
                   ],
                   validator: Validators.validateMobileNumber,
                 ),

@@ -160,10 +160,13 @@ class _InvoicePaymentsScreenState extends State<InvoicePaymentsScreen> {
   int get _remainingAmount => _totalAmount - _paidAmount;
 
   Future<void> _showAddPaymentDialog({PaymentModel? payment}) async {
+    final appointmentId = widget.invoice.appointmentId ?? widget.invoice.id;
+
     final result = await showDialog<PaymentModel>(
       context: context,
       builder: (context) => _AddPaymentDialog(
-        invoiceId: widget.invoice.appointmentId ?? widget.invoice.id,
+        appointmentId: appointmentId,     // ✅ اضافه شد
+        invoiceId: widget.invoice.id,     // ✅ اضافه شد
         banks: _banks,
         payment: payment,
       ),
@@ -628,12 +631,14 @@ class _PaymentCardState extends State<_PaymentCard> {
 
 // 🔥 کلاس _AddPaymentDialog هم باید بیرون باشه
 class _AddPaymentDialog extends StatefulWidget {
-  final String invoiceId;
+  final String appointmentId;  // 🔥 نیاز داریم
+  final String invoiceId;      // 🔥 نیاز داریم
   final List<BankModel> banks;
   final PaymentModel? payment;
 
   const _AddPaymentDialog({
-    required this.invoiceId,
+    required this.appointmentId,  // 🔥 اضافه شد
+    required this.invoiceId,      // 🔥 اضافه شد
     required this.banks,
     this.payment,
   });
@@ -675,7 +680,7 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
   Future<void> _checkForDeposit() async {
     try {
       final paymentRepo = PaymentRepository();
-      final hasDeposit = await paymentRepo.hasDeposit(widget.invoiceId);
+      final hasDeposit = await paymentRepo.hasDeposit(widget.appointmentId);
 
       if (mounted) {
         setState(() {
@@ -758,7 +763,8 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
 
     final payment = PaymentModel(
       id: widget.payment?.id ?? '',
-      appointmentId: widget.invoiceId,
+      appointmentId: widget.appointmentId,  // ✅ اضافه شد
+      invoiceId: widget.invoiceId,          // ✅ اضافه شد
       amount: _parsePrice(_amountController.text),
       type: _selectedType,
       paymentDate: _selectedDate!.toDateTime(),

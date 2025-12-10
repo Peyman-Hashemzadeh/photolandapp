@@ -147,11 +147,13 @@ class InvoiceRepository {
   }
 
   // محاسبه مجموع پرداختی‌ها و آخرین تاریخ پرداخت
+  // محاسبه مجموع پرداختی‌ها و آخرین تاریخ پرداخت
   Future<Map<String, dynamic>> _calculatePaidAmountAndLastDate(String invoiceId) async {
     try {
+      // 🔥 اصلاح شده: استفاده از invoiceId به جای appointmentId
       final snapshot = await _firestore
           .collection('payments')
-          .where('appointmentId', isEqualTo: invoiceId)
+          .where('invoiceId', isEqualTo: invoiceId)  // ✅ اینجا تغییر کرد
           .get();
 
       int total = 0;
@@ -174,6 +176,7 @@ class InvoiceRepository {
         'lastDate': lastDate,
       };
     } catch (e) {
+      print('⚠️ خطا در محاسبه پرداختی‌ها: $e');
       return {
         'amount': 0,
         'lastDate': null,
