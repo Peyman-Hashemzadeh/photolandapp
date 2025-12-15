@@ -41,13 +41,19 @@ class PaymentModel {
     }
   }
 
-  // نمایش بانک (نقدی یا نام بانک)
+  // 🔥 نمایش بانک (نقدی یا نام بانک با 4 رقم آخر)
   String get bankDisplay {
     if (isCash) return 'نقدی';
-    if (bankName != null && accountNumber != null) {
-      return '$bankName ($accountNumber)';
+
+    if (bankName != null) {
+      if (accountNumber != null && accountNumber!.length >= 4) {
+        final lastFour = accountNumber!.substring(accountNumber!.length - 4);
+        return '$bankName ($lastFour)';
+      }
+      return bankName!;
     }
-    return bankName ?? 'نامشخص';
+
+    return 'نامشخص';
   }
 
   // تبدیل از Map به Object

@@ -65,6 +65,26 @@ class CustomerRepository {
     });
   }
 
+// دریافت مشتری بر اساس شماره همراه
+  Future<CustomerModel?> getCustomerByMobile(String mobileNumber) async {
+    try {
+      final snapshot = await _firestore
+          .collection(_collection)
+          .where('mobileNumber', isEqualTo: mobileNumber)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isEmpty) {
+        return null;
+      }
+
+      final doc = snapshot.docs.first;
+      return CustomerModel.fromMap(doc.data(), doc.id);
+    } catch (e) {
+      throw Exception('خطا در جستجوی مشتری: $e');
+    }
+  }
+
   // بررسی تکراری بودن شماره موبایل
   Future<bool> isMobileNumberExists(String mobileNumber, {String? excludeId}) async {
     try {

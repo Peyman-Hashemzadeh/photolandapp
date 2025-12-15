@@ -5,14 +5,14 @@ import '../../../core/constants/colors.dart';
 import '../../../core/utils/date_helper.dart';
 import 'dart:math' as math;
 
-class YearlyPerformanceReportScreen extends StatefulWidget {
-  const YearlyPerformanceReportScreen({super.key});
+class YearlyReportScreen extends StatefulWidget {
+  const YearlyReportScreen({super.key});
 
   @override
-  State<YearlyPerformanceReportScreen> createState() => _YearlyPerformanceReportScreenState();
+  State<YearlyReportScreen> createState() => _YearlyReportScreenState();
 }
 
-class _YearlyPerformanceReportScreenState extends State<YearlyPerformanceReportScreen> {
+class _YearlyReportScreenState extends State<YearlyReportScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   bool _isLoading = false;

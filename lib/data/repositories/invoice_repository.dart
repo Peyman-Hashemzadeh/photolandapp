@@ -3,14 +3,13 @@ import '../models/invoice_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class InvoiceRepository {
-  final FirebaseAuth _auth = FirebaseAuth.instance; // 🔥 اضافه کنید
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String _invoicesCollection = 'invoices';
   final String _itemsCollection = 'invoice_items';
 
   // =============== فاکتورها ===============
 
-  // دریافت شماره سند بعدی (خودکار)
   Future<int> getNextInvoiceNumber() async {
     try {
       final snapshot = await _firestore
@@ -20,17 +19,16 @@ class InvoiceRepository {
           .get();
 
       if (snapshot.docs.isEmpty) {
-        return 1000; // اولین شماره
+        return 1000;
       }
 
       final lastInvoice = InvoiceModel.fromMap(snapshot.docs.first.data(), snapshot.docs.first.id);
       return lastInvoice.invoiceNumber + 1;
     } catch (e) {
-      return 1000; // در صورت خطا، از 1000 شروع کن
+      return 1000;
     }
   }
 
-  // دریافت فاکتور بر اساس نوبت
   Future<InvoiceModel?> getInvoiceByAppointment(String appointmentId) async {
     try {
       final snapshot = await _firestore
@@ -48,7 +46,6 @@ class InvoiceRepository {
     }
   }
 
-  // دریافت فاکتور بر اساس شماره سند
   Future<InvoiceModel?> getInvoiceByNumber(int invoiceNumber) async {
     try {
       final snapshot = await _firestore
@@ -66,7 +63,6 @@ class InvoiceRepository {
     }
   }
 
-  // دریافت همه فاکتورها
   Stream<List<InvoiceModel>> getAllInvoices() {
     return _firestore
         .collection(_invoicesCollection)
@@ -92,48 +88,106 @@ class InvoiceRepository {
     }
   }
 
-  // 🔥 جدید: محاسبه تاریخ تحویل پیش‌فرض (14 روز بعد از تاریخ)
   DateTime calculateDefaultDeliveryDate(DateTime settlementDate) {
     return settlementDate.add(const Duration(days: 14));
   }
 
-  // 🔥 دریافت فاکتورهای تسویه شده نزدیک به تحویل (برای یادآوری)
-  Stream<List<Map<String, dynamic>>> getPendingDeliveryInvoices() async* {
-    await for (var snapshot in _firestore
+  // 🔥 بهینه‌سازی شده: تنها یک بار همه داده‌ها رو میگیره
+  Stream<List<Map<String, dynamic>>> getPendingDeliveryInvoices() {
+    return _firestore
         .collection(_invoicesCollection)
-        .snapshots()) {
+        .where('deliveryDate', isNotEqualTo: null)
+        .snapshots()
+        .asyncMap((invoiceSnapshot) async {
 
+      if (invoiceSnapshot.docs.isEmpty) {
+        return [];
+      }
+
+      // 🔥 یکجا همه invoiceId ها رو بگیر
+      final invoiceIds = invoiceSnapshot.docs.map((doc) => doc.id).toList();
+
+      // 🔥 Query موازی: یکجا همه items و payments رو بگیر
+      final itemsFuture = _firestore
+          .collection(_itemsCollection)
+          .where('invoiceId', whereIn: invoiceIds)
+          .get();
+
+      final paymentsFuture = _firestore
+          .collection('payments')
+          .where('invoiceId', whereIn: invoiceIds)
+          .get();
+
+      // 🔥 منتظر هر دو query میمونیم
+      final results = await Future.wait([itemsFuture, paymentsFuture]);
+      final itemsSnapshot = results[0];
+      final paymentsSnapshot = results[1];
+
+      // 🔥 گروه‌بندی items بر اساس invoiceId
+      final Map<String, List<Map<String, dynamic>>> itemsByInvoice = {};
+      for (var doc in itemsSnapshot.docs) {
+        final invoiceId = doc.data()['invoiceId'] as String;
+        itemsByInvoice.putIfAbsent(invoiceId, () => []);
+        itemsByInvoice[invoiceId]!.add(doc.data());
+      }
+
+      // 🔥 گروه‌بندی payments بر اساس invoiceId
+      final Map<String, List<Map<String, dynamic>>> paymentsByInvoice = {};
+      for (var doc in paymentsSnapshot.docs) {
+        final invoiceId = doc.data()['invoiceId'] as String;
+        paymentsByInvoice.putIfAbsent(invoiceId, () => []);
+        paymentsByInvoice[invoiceId]!.add(doc.data());
+      }
+
+      // 🔥 پردازش هر فاکتور (بدون query اضافی!)
       final List<Map<String, dynamic>> result = [];
 
-      for (var doc in snapshot.docs) {
+      for (var doc in invoiceSnapshot.docs) {
         try {
           final invoice = InvoiceModel.fromMap(doc.data(), doc.id);
 
-          // 🔥 چک ۱: فقط editing یا null (فاکتورهای قدیمی)
+          // چک وضعیت
           if (invoice.status != null && invoice.status != 'editing') {
-            print('⏭️ فاکتور ${invoice.invoiceNumber} رد شد: status = ${invoice.status}');
             continue;
           }
 
-          // محاسبه مبالغ
-          final grandTotal = await calculateGrandTotal(invoice.id);
-          print('💰 فاکتور ${invoice.invoiceNumber}: grandTotal = $grandTotal');
+          // محاسبه grandTotal از items کش شده
+          final items = itemsByInvoice[invoice.id] ?? [];
+          int itemsTotal = 0;
+          for (var item in items) {
+            final quantity = (item['quantity'] as int?) ?? 0;
+            final unitPrice = (item['unitPrice'] as int?) ?? 0;
+            itemsTotal += quantity * unitPrice;
+          }
 
-          final paidData = await _calculatePaidAmountAndLastDate(invoice.id);
-          final paidAmount = paidData['amount'] as int;
-          final lastPaymentDate = paidData['lastDate'] as DateTime?;
+          int grandTotal = itemsTotal;
+          if (invoice.shippingCost != null) grandTotal += invoice.shippingCost!;
+          if (invoice.discount != null) grandTotal -= invoice.discount!;
+          if (grandTotal < 0) grandTotal = 0;
 
-          print('💵 فاکتور ${invoice.invoiceNumber}: paidAmount = $paidAmount, lastDate = $lastPaymentDate');
+          // محاسبه paidAmount و lastPaymentDate از payments کش شده
+          final payments = paymentsByInvoice[invoice.id] ?? [];
+          int paidAmount = 0;
+          DateTime? lastPaymentDate;
 
-          // فقط فاکتورهای تسویه شده که آخرین پرداخت دارند
+          for (var payment in payments) {
+            final amount = (payment['amount'] as int?) ?? 0;
+            paidAmount += amount;
+
+            final paymentDate = (payment['paymentDate'] as Timestamp?)?.toDate();
+            if (paymentDate != null) {
+              if (lastPaymentDate == null || paymentDate.isAfter(lastPaymentDate)) {
+                lastPaymentDate = paymentDate;
+              }
+            }
+          }
+
+          // فقط فاکتورهای تسویه شده
           if (paidAmount >= grandTotal && grandTotal > 0 && lastPaymentDate != null) {
-            print('✅ فاکتور ${invoice.invoiceNumber} اضافه شد به یادآوری');
             result.add({
               'invoice': invoice,
               'lastPaymentDate': lastPaymentDate,
             });
-          } else {
-            print('⏭️ فاکتور ${invoice.invoiceNumber} رد شد: تسویه نشده یا پرداخت نداره');
           }
         } catch (e) {
           print('⚠️ خطا در پردازش فاکتور ${doc.id}: $e');
@@ -141,50 +195,10 @@ class InvoiceRepository {
         }
       }
 
-      print('📊 تعداد کل فاکتورهای یادآوری: ${result.length}');
-      yield result;
-    }
+      return result;
+    });
   }
 
-  // محاسبه مجموع پرداختی‌ها و آخرین تاریخ پرداخت
-  // محاسبه مجموع پرداختی‌ها و آخرین تاریخ پرداخت
-  Future<Map<String, dynamic>> _calculatePaidAmountAndLastDate(String invoiceId) async {
-    try {
-      // 🔥 اصلاح شده: استفاده از invoiceId به جای appointmentId
-      final snapshot = await _firestore
-          .collection('payments')
-          .where('invoiceId', isEqualTo: invoiceId)  // ✅ اینجا تغییر کرد
-          .get();
-
-      int total = 0;
-      DateTime? lastDate;
-
-      for (var doc in snapshot.docs) {
-        final amount = (doc.data()['amount'] as int?) ?? 0;
-        total += amount;
-
-        final paymentDate = (doc.data()['paymentDate'] as Timestamp?)?.toDate();
-        if (paymentDate != null) {
-          if (lastDate == null || paymentDate.isAfter(lastDate)) {
-            lastDate = paymentDate;
-          }
-        }
-      }
-
-      return {
-        'amount': total,
-        'lastDate': lastDate,
-      };
-    } catch (e) {
-      print('⚠️ خطا در محاسبه پرداختی‌ها: $e');
-      return {
-        'amount': 0,
-        'lastDate': null,
-      };
-    }
-  }
-
-  // ایجاد فاکتور جدید
   Future<String> createInvoice(InvoiceModel invoice) async {
     try {
       final docRef = await _firestore
@@ -196,7 +210,6 @@ class InvoiceRepository {
     }
   }
 
-  // ویرایش فاکتور
   Future<void> updateInvoice(InvoiceModel invoice) async {
     try {
       await _firestore
@@ -208,7 +221,6 @@ class InvoiceRepository {
     }
   }
 
-  // بروزرسانی وضعیت فاکتور
   Future<void> updateInvoiceStatus(String invoiceId, String status) async {
     try {
       await _firestore.collection(_invoicesCollection).doc(invoiceId).update({
@@ -220,22 +232,17 @@ class InvoiceRepository {
     }
   }
 
-  // حذف فاکتور
-  // حذف فاکتور
   Future<void> deleteInvoice(String invoiceId) async {
     try {
-      // 🔥 حذف تمام آیتم‌های فاکتور
       final itemsSnapshot = await _firestore
-          .collection(_itemsCollection) // استفاده از collection اصلی
+          .collection(_itemsCollection)
           .where('invoiceId', isEqualTo: invoiceId)
           .get();
 
-      // حذف هر آیتم
       for (var doc in itemsSnapshot.docs) {
         await doc.reference.delete();
       }
 
-      // 🔥 حذف فاکتور
       await _firestore
           .collection(_invoicesCollection)
           .doc(invoiceId)
@@ -249,7 +256,6 @@ class InvoiceRepository {
 
   // =============== آیتم‌های فاکتور ===============
 
-  // دریافت آیتم‌های یک فاکتور
   Stream<List<InvoiceItem>> getInvoiceItems(String invoiceId) {
     return _firestore
         .collection(_itemsCollection)
@@ -263,7 +269,6 @@ class InvoiceRepository {
     });
   }
 
-  // افزودن آیتم به فاکتور
   Future<String> addInvoiceItem(InvoiceItem item) async {
     try {
       final docRef = await _firestore
@@ -275,7 +280,6 @@ class InvoiceRepository {
     }
   }
 
-  // ویرایش آیتم فاکتور
   Future<void> updateInvoiceItem(InvoiceItem item) async {
     try {
       await _firestore
@@ -287,7 +291,6 @@ class InvoiceRepository {
     }
   }
 
-  // حذف آیتم فاکتور
   Future<void> deleteInvoiceItem(String itemId) async {
     try {
       await _firestore
@@ -299,7 +302,6 @@ class InvoiceRepository {
     }
   }
 
-  // محاسبه مجموع فاکتور (فقط آیتم‌ها)
   Future<int> calculateInvoiceTotal(String invoiceId) async {
     try {
       final snapshot = await _firestore
@@ -319,7 +321,6 @@ class InvoiceRepository {
     }
   }
 
-  // محاسبه جمع کل (آیتم‌ها + هزینه ارسال - تخفیف)
   Future<int> calculateGrandTotal(String invoiceId) async {
     try {
       final doc = await _firestore.collection(_invoicesCollection).doc(invoiceId).get();

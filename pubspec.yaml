@@ -33,6 +33,9 @@ dependencies:
 
   go_router: ^14.0.0
 
+  pdf: ^3.10.4
+  printing: ^5.11.0
+
   # تقویم شمسی
   shamsi_date: ^1.0.1
   persian_datetime_picker: ^3.1.1

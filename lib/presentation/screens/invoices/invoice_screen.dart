@@ -853,6 +853,20 @@ class _AddItemDialogState extends State<_AddItemDialog> {
     }
   }
 
+  Future<void> _showServiceSearchDialog() async {
+    final result = await showDialog<ServiceModel>(
+      context: context,
+      builder: (context) => _ServiceSearchDialog(
+        services: widget.services,
+        selectedService: _selectedService,
+      ),
+    );
+
+    if (result != null) {
+      _onServiceChanged(result);
+    }
+  }
+
   @override
   void dispose() {
     _quantityController.dispose();
@@ -930,27 +944,37 @@ class _AddItemDialogState extends State<_AddItemDialog> {
                 ),
                 const SizedBox(height: 24),
 
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<ServiceModel>(
-                      value: _selectedService,
-                      isExpanded: true,
-                      icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary),
-                      hint: const Text('انتخاب خدمت', textAlign: TextAlign.right),
-                      items: widget.services.map((service) {
-                        return DropdownMenuItem(
-                          value: service,
-                          alignment: Alignment.centerRight,
-                          child: Text(service.serviceName, textAlign: TextAlign.right),
-                        );
-                      }).toList(),
-                      onChanged: _onServiceChanged,
+                // به جای Container با DropdownButton:
+                InkWell(
+                  onTap: () => _showServiceSearchDialog(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _selectedService?.serviceName ?? 'انتخاب خدمت',
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: _selectedService != null
+                                  ? AppColors.textPrimary
+                                  : AppColors.textLight,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Icon(
+                          Icons.search,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1033,6 +1057,286 @@ class _AddItemDialogState extends State<_AddItemDialog> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// 🔥 دیالوگ جستجوی خدمات
+class _ServiceSearchDialog extends StatefulWidget {
+  final List<ServiceModel> services;
+  final ServiceModel? selectedService;
+
+  const _ServiceSearchDialog({
+    required this.services,
+    this.selectedService,
+  });
+
+  @override
+  State<_ServiceSearchDialog> createState() => _ServiceSearchDialogState();
+}
+
+class _ServiceSearchDialogState extends State<_ServiceSearchDialog> {
+  final TextEditingController _searchController = TextEditingController();
+  List<ServiceModel> _filteredServices = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredServices = widget.services;
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterServices(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredServices = widget.services;
+      } else {
+        _filteredServices = widget.services
+            .where((service) =>
+            service.serviceName.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.all(20),
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 600),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: Colors.white,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 🎨 هدر
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary,
+                    AppColors.primary.withOpacity(0.8),
+                  ],
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.search, color: Colors.white, size: 24),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'جستجوی خدمت',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // 🔍 فیلد جستجو
+                  TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    textAlign: TextAlign.right,
+                    onChanged: _filterServices,
+                    decoration: InputDecoration(
+                      hintText: 'جستجو در خدمات...',
+                      hintStyle: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 14,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.2),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search,
+                        color: Colors.white.withOpacity(0.7),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+
+            // 📊 تعداد نتایج
+            if (_filteredServices.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.filter_list,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${DateHelper.toPersianDigits(_filteredServices.length.toString())} خدمت یافت شد',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // 📋 لیست خدمات
+            Expanded(
+              child: _filteredServices.isEmpty
+                  ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.search_off,
+                      size: 64,
+                      color: Colors.grey.shade300,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'خدمتی یافت نشد',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'کلمه دیگری جستجو کنید',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+                  : ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                itemCount: _filteredServices.length,
+                itemBuilder: (context, index) {
+                  final service = _filteredServices[index];
+                  final isSelected = service.id == widget.selectedService?.id;
+
+                  return InkWell(
+                    onTap: () => Navigator.pop(context, service),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary.withOpacity(0.1)
+                            : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : Colors.grey.shade200,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // نام خدمت
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  service.serviceName,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.w600,
+                                    color: isSelected
+                                        ? AppColors.primary
+                                        : AppColors.textPrimary,
+                                  ),
+                                  textAlign: TextAlign.right,
+                                ),
+                                if (service.price != null) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    '${DateHelper.toPersianDigits(ServiceModel.formatNumber(service.price!))} تومان',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+
+                          if (isSelected) const SizedBox(width: 12),
+
+                          // آیکون انتخاب شده
+                          if (isSelected)
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+
+                          // آیکون فلش
+                          //Icon(
+                          //  Icons.arrow_back_ios_rounded,
+                          //  size: 16,
+                          //  color: isSelected
+                          //      ? AppColors.primary
+                          //      : Colors.grey.shade400,
+                          //),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

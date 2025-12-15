@@ -7,14 +7,14 @@ import '../../../data/models/invoice_model.dart';
 import '../../../data/models/payment_model.dart';
 import 'dart:math' as math;
 
-class MonthlyPerformanceReportScreen extends StatefulWidget {
-  const MonthlyPerformanceReportScreen({super.key});
+class MonthlyReportScreen extends StatefulWidget {
+  const MonthlyReportScreen({super.key});
 
   @override
-  State<MonthlyPerformanceReportScreen> createState() => _MonthlyPerformanceReportScreenState();
+  State<MonthlyReportScreen> createState() => _MonthlyReportScreenState();
 }
 
-class _MonthlyPerformanceReportScreenState extends State<MonthlyPerformanceReportScreen> {
+class _MonthlyReportScreenState extends State<MonthlyReportScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   late String _selectedYear;

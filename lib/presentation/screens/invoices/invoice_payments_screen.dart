@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter/services.dart';
 import 'package:persian_datetime_picker/persian_datetime_picker.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import '../../../core/constants/colors.dart';
@@ -14,7 +14,6 @@ import '../../../data/repositories/payment_repository.dart';
 import '../../../data/repositories/bank_repository.dart';
 import '../../../data/repositories/invoice_repository.dart';
 import '../../widgets/custom_button.dart';
-import 'package:flutter/services.dart';
 
 class PersianPriceInputFormatter extends TextInputFormatter {
   @override
@@ -105,29 +104,20 @@ class _InvoicePaymentsScreenState extends State<InvoicePaymentsScreen> {
 
       final appointmentId = widget.invoice.appointmentId ?? widget.invoice.id;
 
-      _paymentRepository.getPaymentsByAppointment(appointmentId).listen((payments) async {
+      _paymentRepository.getPaymentsByAppointment(appointmentId).listen((payments) {
         if (mounted) {
           setState(() {
             _payments = payments;
             _paidAmount = payments.fold(0, (sum, payment) => sum + payment.amount);
           });
-          await _checkAndUpdateDeliveryDate(payments);
+          // 🔥 حذف شد: دیگه اینجا چک نمیکنیم
         }
       });
 
-      //_paymentRepository.getPaymentsByInvoice(widget.invoice.id).listen((payments) {
-      //  if (mounted) {
-      //    setState(() {
-      //      _payments = payments;
-      //      _paidAmount = payments.fold(0, (sum, payment) => sum + payment.amount);
-      //    });
-      //  }
-      //});
-
-      final total = await _invoiceRepository.calculateGrandTotal(widget.invoice.id);
+      final totalAmount = await _invoiceRepository.calculateGrandTotal(widget.invoice.id);
 
       setState(() {
-        _totalAmount = total;
+        _totalAmount = totalAmount;
         _isLoading = false;
       });
     } catch (e) {
@@ -138,9 +128,16 @@ class _InvoicePaymentsScreenState extends State<InvoicePaymentsScreen> {
     }
   }
 
-  Future<void> _checkAndUpdateDeliveryDate(List<PaymentModel> payments) async {
+  // 🔥 متد جدید: فقط بعد از تغییر payment صدا زده میشه
+  Future<void> _updateDeliveryDateAfterPayment() async {
     try {
-      final isSettled = _paidAmount >= _totalAmount && _totalAmount > 0;
+      final appointmentId = widget.invoice.appointmentId ?? widget.invoice.id;
+      final payments = await _paymentRepository
+          .getPaymentsByAppointment(appointmentId)
+          .first;
+
+      final paidAmount = payments.fold(0, (sum, payment) => sum + payment.amount);
+      final isSettled = paidAmount >= _totalAmount && _totalAmount > 0;
 
       if (isSettled && payments.isNotEmpty) {
         final sortedPayments = payments..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
@@ -165,8 +162,8 @@ class _InvoicePaymentsScreenState extends State<InvoicePaymentsScreen> {
     final result = await showDialog<PaymentModel>(
       context: context,
       builder: (context) => _AddPaymentDialog(
-        appointmentId: appointmentId,     // ✅ اضافه شد
-        invoiceId: widget.invoice.id,     // ✅ اضافه شد
+        appointmentId: appointmentId,
+        invoiceId: widget.invoice.id,
         banks: _banks,
         payment: payment,
       ),
@@ -185,6 +182,9 @@ class _InvoicePaymentsScreenState extends State<InvoicePaymentsScreen> {
             SnackBarHelper.showSuccess(context, 'دریافتی با موفقیت ویرایش شد');
           }
         }
+
+        // 🔥 اضافه شد: بعد از ثبت/ویرایش، deliveryDate رو چک کن
+        await _updateDeliveryDateAfterPayment();
 
         await Future.delayed(const Duration(milliseconds: 500));
       } catch (e) {
@@ -223,6 +223,9 @@ class _InvoicePaymentsScreenState extends State<InvoicePaymentsScreen> {
         if (mounted) {
           SnackBarHelper.showSuccess(context, 'دریافتی با موفقیت حذف شد');
         }
+
+        // 🔥 اضافه شد: بعد از حذف، deliveryDate رو چک کن
+        await _updateDeliveryDateAfterPayment();
 
         await Future.delayed(const Duration(milliseconds: 500));
       } catch (e) {
@@ -489,7 +492,6 @@ class _InvoicePaymentsScreenState extends State<InvoicePaymentsScreen> {
   }
 }
 
-// 🔥 کلاس _PaymentCard باید بیرون از _InvoicePaymentsScreenState باشه
 class _PaymentCard extends StatefulWidget {
   final PaymentModel payment;
   final VoidCallback onEdit;
@@ -629,16 +631,15 @@ class _PaymentCardState extends State<_PaymentCard> {
   }
 }
 
-// 🔥 کلاس _AddPaymentDialog هم باید بیرون باشه
 class _AddPaymentDialog extends StatefulWidget {
-  final String appointmentId;  // 🔥 نیاز داریم
-  final String invoiceId;      // 🔥 نیاز داریم
+  final String appointmentId;
+  final String invoiceId;
   final List<BankModel> banks;
   final PaymentModel? payment;
 
   const _AddPaymentDialog({
-    required this.appointmentId,  // 🔥 اضافه شد
-    required this.invoiceId,      // 🔥 اضافه شد
+    required this.appointmentId,
+    required this.invoiceId,
     required this.banks,
     this.payment,
   });
@@ -763,8 +764,8 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
 
     final payment = PaymentModel(
       id: widget.payment?.id ?? '',
-      appointmentId: widget.appointmentId,  // ✅ اضافه شد
-      invoiceId: widget.invoiceId,          // ✅ اضافه شد
+      appointmentId: widget.appointmentId,
+      invoiceId: widget.invoiceId,
       amount: _parsePrice(_amountController.text),
       type: _selectedType,
       paymentDate: _selectedDate!.toDateTime(),

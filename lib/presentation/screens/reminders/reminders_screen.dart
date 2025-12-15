@@ -5,13 +5,14 @@ import '../../../core/constants/colors.dart';
 import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../data/models/invoice_model.dart';
+import '../../../data/models/customer_model.dart';
+import '../../../data/models/payment_model.dart';
 import '../../../data/repositories/invoice_repository.dart';
 import '../../../data/repositories/payment_repository.dart';
 import '../../../data/repositories/customer_repository.dart';
 import '../../widgets/empty_state_widget.dart';
 import '../invoices/invoice_preview_screen.dart';
 
-// فیلتر یادآوری
 enum ReminderFilter {
   overdue('رد شده'),
   editList('لیست ادیت'),
@@ -21,7 +22,6 @@ enum ReminderFilter {
   const ReminderFilter(this.label);
 }
 
-// وضعیت فاکتور
 enum InvoiceStatus {
   editing('درصف ویرایش'),
   confirmed('تایید مشتری'),
@@ -123,39 +123,33 @@ class _RemindersScreenState extends State<RemindersScreen> {
         final allData = snapshot.data ?? [];
         final today = DateTime.now();
 
-        // فیلتر بر اساس انتخاب کاربر
         List<Map<String, dynamic>> filteredData = [];
 
         if (_selectedFilter == ReminderFilter.overdue) {
-          // فقط رد شده‌ها
           filteredData = allData.where((data) {
             final invoice = data['invoice'] as InvoiceModel;
             return invoice.deliveryDate != null &&
                 invoice.deliveryDate!.isBefore(DateTime(today.year, today.month, today.day));
           }).toList();
 
-          // 🔥 سورت: رد شده‌ها - از قدیمی‌تر به جدیدتر (بیشتر گذشته بالاتر)
           filteredData.sort((a, b) {
             final dateA = (a['invoice'] as InvoiceModel).deliveryDate!;
             final dateB = (b['invoice'] as InvoiceModel).deliveryDate!;
-            return dateA.compareTo(dateB); // قدیمی‌تر بالاتر
+            return dateA.compareTo(dateB);
           });
         } else if (_selectedFilter == ReminderFilter.editList) {
-          // فقط لیست ادیت
           filteredData = allData.where((data) {
             final invoice = data['invoice'] as InvoiceModel;
             return invoice.deliveryDate != null &&
                 !invoice.deliveryDate!.isBefore(DateTime(today.year, today.month, today.day));
           }).toList();
 
-          // 🔥 سورت: لیست ادیت - از نزدیک به دور (نزدیکتر به امروز بالاتر)
           filteredData.sort((a, b) {
             final dateA = (a['invoice'] as InvoiceModel).deliveryDate!;
             final dateB = (b['invoice'] as InvoiceModel).deliveryDate!;
-            return dateA.compareTo(dateB); // نزدیکتر بالاتر
+            return dateA.compareTo(dateB);
           });
         } else {
-          // 🔥 همه: ابتدا رد شده‌ها (از قدیمی‌تر) بعد لیست ادیت (از نزدیک‌تر)
           final overdue = allData.where((data) {
             final invoice = data['invoice'] as InvoiceModel;
             return invoice.deliveryDate != null &&
@@ -168,25 +162,21 @@ class _RemindersScreenState extends State<RemindersScreen> {
                 !invoice.deliveryDate!.isBefore(DateTime(today.year, today.month, today.day));
           }).toList();
 
-          // سورت رد شده‌ها: از قدیمی به جدید
           overdue.sort((a, b) {
             final dateA = (a['invoice'] as InvoiceModel).deliveryDate!;
             final dateB = (b['invoice'] as InvoiceModel).deliveryDate!;
             return dateA.compareTo(dateB);
           });
 
-          // سورت لیست ادیت: از نزدیک به دور
           editList.sort((a, b) {
             final dateA = (a['invoice'] as InvoiceModel).deliveryDate!;
             final dateB = (b['invoice'] as InvoiceModel).deliveryDate!;
             return dateA.compareTo(dateB);
           });
 
-          // ترکیب: ابتدا رد شده‌ها، بعد لیست ادیت
           filteredData = [...overdue, ...editList];
         }
 
-        // محاسبه آمار
         final editListCount = allData.where((data) {
           final invoice = data['invoice'] as InvoiceModel;
           return invoice.deliveryDate != null &&
@@ -201,10 +191,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
         return Column(
           children: [
-            // 🔥 آمار به عنوان فیلتر
             _buildStatsFilter(editListCount, overdueCount, allData.length),
-
-            // لیست
             Expanded(
               child: filteredData.isEmpty
                   ? EmptyStateWidget(
@@ -232,8 +219,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
     );
   }
 
-
-  // 🔥 جدید: آمار به عنوان فیلتر (سه گزینه کنار هم)
   Widget _buildStatsFilter(int editListCount, int overdueCount, int allCount) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -241,13 +226,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.4),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          //BoxShadow(
-          //  color: Colors.black.withOpacity(0.05),
-          //  blurRadius: 10,
-          //  offset: const Offset(0, 3),
-          //),
-        ],
       ),
       child: Row(
         children: [
@@ -281,8 +259,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
       ),
     );
   }
-
-
 
   Widget _buildStatItem({
     required String label,
@@ -323,6 +299,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
       ),
     );
   }
+
   Widget _buildDivider() {
     return Container(
       width: 1,
@@ -331,7 +308,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
       color: Colors.grey.shade300,
     );
   }
-
 
   Widget _buildReminderCard(InvoiceModel invoice, DateTime lastPaymentDate) {
     final today = DateTime.now();
@@ -372,7 +348,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ردیف اول: نام مشتری و Badge
               Row(
                 children: [
                   Expanded(
@@ -415,10 +390,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 8),
-
-              // ردیف دوم: تاریخ نوبت و تسویه
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -429,7 +401,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // تاریخ نوبت
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -441,10 +412,9 @@ class _RemindersScreenState extends State<RemindersScreen> {
                             fontSize: 13,
                             color: AppColors.textSecondary,
                           ),
-                        ),                      ],
+                        ),
+                      ],
                     ),
-
-                    // تاریخ تسویه
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -462,10 +432,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 8),
-
-              // ردیف سوم: تاریخ تحویل
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -493,8 +460,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
                   ],
                 ),
               ),
-
-              // 🔥 دکمه‌های عملیاتی (با حل مشکل overflow)
               AnimatedSize(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
@@ -503,7 +468,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
                     ? Column(
                   children: [
                     const SizedBox(height: 12),
-                    // 🔥 Wrap به جای Row برای جلوگیری از overflow
                     Wrap(
                       alignment: WrapAlignment.start,
                       spacing: 8,
@@ -622,6 +586,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
     }
   }
 
+  // 🔥 اصلاح شده: با Future.wait سریعتر شده
   void _handleViewInvoice(InvoiceModel invoice) async {
     try {
       showDialog(
@@ -630,16 +595,20 @@ class _RemindersScreenState extends State<RemindersScreen> {
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      final invoiceRepository = InvoiceRepository();
-      final itemsSnapshot = await invoiceRepository.getInvoiceItems(invoice.id).first;
-      final totalAmount = await invoiceRepository.calculateInvoiceTotal(invoice.id);
-      final grandTotal = await invoiceRepository.calculateGrandTotal(invoice.id);
-      final customerRepository = CustomerRepository();
-      final customer = await customerRepository.getCustomerById(invoice.customerId);
+      // 🔥 همه query ها رو موازی اجرا کن
+      final results = await Future.wait([
+        _invoiceRepository.getInvoiceItems(invoice.id).first,
+        _invoiceRepository.calculateGrandTotal(invoice.id),
+        CustomerRepository().getCustomerById(invoice.customerId),
+        _paymentRepository.getPaymentsByInvoice(invoice.id).first,
+      ]);
 
-      // 🔥 محاسبه مبلغ پرداختی با تایپ صحیح
-      final payments = await _paymentRepository.getPaymentsByInvoice(invoice.id).first;
-      final paidAmount = payments.fold<int>(0, (sum, payment) => sum + payment.amount);
+      final itemsSnapshot = results[0] as List<InvoiceItem>;
+      final grandTotal = results[1] as int;
+      final customer = results[2] as CustomerModel?;
+      final payments = results[3] as List<PaymentModel>;
+
+      final paidAmount = payments.fold<int>(0, (sum, p) => sum + p.amount);
       final remainingAmount = grandTotal - paidAmount;
 
       if (!mounted) return;
@@ -657,7 +626,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
             invoice: invoice,
             customer: customer,
             items: itemsSnapshot,
-            totalAmount: totalAmount,
+            totalAmount: grandTotal - (invoice.shippingCost ?? 0) + (invoice.discount ?? 0),
             shippingCost: invoice.shippingCost ?? 0,
             discount: invoice.discount ?? 0,
             grandTotal: grandTotal,
@@ -669,7 +638,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
-        SnackBarHelper.showError(context, 'خطا در بارگذاری فاکتور');
+        SnackBarHelper.showError(context, 'خطا در بارگذاری فاکتور: $e');
       }
     }
   }
@@ -701,7 +670,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
   }
 }
 
-// دیالوگ تغییر وضعیت
 class _ChangeStatusDialog extends StatefulWidget {
   final String? currentStatus;
 
@@ -750,7 +718,6 @@ class _ChangeStatusDialogState extends State<_ChangeStatusDialog> {
               ),
             ),
             const SizedBox(height: 24),
-
             ...InvoiceStatus.values.map((status) {
               return ListTile(
                 title: Text(
@@ -769,7 +736,6 @@ class _ChangeStatusDialogState extends State<_ChangeStatusDialog> {
                 },
               );
             }).toList(),
-
             const SizedBox(height: 24),
             Row(
               children: [

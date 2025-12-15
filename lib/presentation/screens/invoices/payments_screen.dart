@@ -102,14 +102,14 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         }
       });
 
-      // 🔥 اصلاح شده: استفاده از invoiceId
-      _paymentRepository.getPaymentsByInvoice(widget.invoice.id).listen((payments) async {
+      // 🔥 اصلاح: فقط مقداردهی اولیه، بدون چک کردن deliveryDate
+      _paymentRepository.getPaymentsByInvoice(widget.invoice.id).listen((payments) {
         if (mounted) {
           setState(() {
             _payments = payments;
             _paidAmount = payments.fold(0, (sum, payment) => sum + payment.amount);
           });
-          await _checkAndUpdateDeliveryDate(payments);
+          // 🔥 حذف شد: دیگه اینجا چک نمیکنیم
         }
       });
 
@@ -119,9 +119,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         _totalAmount = total;
         _isLoading = false;
       });
-
-      // 🔥 حذف شد: دیگه نیازی به چک کردن بیعانه نداریم
-      // چون همه پرداخت‌ها با invoiceId ثبت می‌شن
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -130,42 +127,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     }
   }
 
-  Future<void> _updateDepositInvoiceId() async {
-    try {
-      final payments = await _paymentRepository
-          .getPaymentsByAppointment(widget.appointment.id)
-          .first;
-
-      for (var payment in payments) {
-        if (payment.type == 'deposit' && payment.invoiceId == null) {
-          await _paymentRepository.updatePayment(
-            payment.copyWith(invoiceId: widget.invoice.id),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('خطا در آپدیت invoiceId: $e');
-    }
-  }
-
-  Future<void> _checkAndUpdateDeliveryDate(List<PaymentModel> payments) async {
-    try {
-      final isSettled = _paidAmount >= _totalAmount && _totalAmount > 0;
-
-      if (isSettled && payments.isNotEmpty) {
-        final sortedPayments = payments..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
-        final lastPaymentDate = sortedPayments.first.paymentDate;
-        final deliveryDate = _invoiceRepository.calculateDefaultDeliveryDate(lastPaymentDate);
-        await _invoiceRepository.updateDeliveryDate(widget.invoice.id, deliveryDate);
-        print('✅ تاریخ تحویل به‌روز شد: $deliveryDate');
-      } else if (!isSettled) {
-        await _invoiceRepository.updateDeliveryDate(widget.invoice.id, null);
-        print('🔄 تاریخ تحویل خالی شد (تسویه نیست)');
-      }
-    } catch (e) {
-      print('⚠️ خطا در بررسی deliveryDate: $e');
-    }
-  }
+  // 🔥 این متد حذف شد چون دیگه نمیخوایم هر بار که صفحه باز میشه deliveryDate رو چک کنه
 
   int get _remainingAmount => _totalAmount - _paidAmount;
 
@@ -173,8 +135,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     final result = await showDialog<PaymentModel>(
       context: context,
       builder: (context) => _AddPaymentDialog(
-        appointmentId: widget.appointment.id,  // ✅ برای چک کردن deposit
-        invoiceId: widget.invoice.id,          // ✅ برای ذخیره
+        appointmentId: widget.appointment.id,
+        invoiceId: widget.invoice.id,
         banks: _banks,
         payment: payment,
       ),
@@ -193,6 +155,9 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             SnackBarHelper.showSuccess(context, 'دریافتی با موفقیت ویرایش شد');
           }
         }
+
+        // 🔥 اضافه شد: بعد از ثبت/ویرایش، deliveryDate رو چک کن
+        await _updateDeliveryDateAfterPayment();
 
         await Future.delayed(const Duration(milliseconds: 500));
       } catch (e) {
@@ -232,12 +197,40 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           SnackBarHelper.showSuccess(context, 'دریافتی با موفقیت حذف شد');
         }
 
+        // 🔥 اضافه شد: بعد از حذف، deliveryDate رو چک کن
+        await _updateDeliveryDateAfterPayment();
+
         await Future.delayed(const Duration(milliseconds: 500));
       } catch (e) {
         if (mounted) {
           SnackBarHelper.showError(context, e.toString().replaceAll('Exception: ', ''));
         }
       }
+    }
+  }
+
+  // 🔥 متد جدید: فقط بعد از تغییر payment صدا زده میشه
+  Future<void> _updateDeliveryDateAfterPayment() async {
+    try {
+      final payments = await _paymentRepository
+          .getPaymentsByInvoice(widget.invoice.id)
+          .first;
+
+      final paidAmount = payments.fold(0, (sum, payment) => sum + payment.amount);
+      final isSettled = paidAmount >= _totalAmount && _totalAmount > 0;
+
+      if (isSettled && payments.isNotEmpty) {
+        final sortedPayments = payments..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+        final lastPaymentDate = sortedPayments.first.paymentDate;
+        final deliveryDate = _invoiceRepository.calculateDefaultDeliveryDate(lastPaymentDate);
+        await _invoiceRepository.updateDeliveryDate(widget.invoice.id, deliveryDate);
+        print('✅ تاریخ تحویل به‌روز شد: $deliveryDate');
+      } else if (!isSettled) {
+        await _invoiceRepository.updateDeliveryDate(widget.invoice.id, null);
+        print('🔄 تاریخ تحویل خالی شد (تسویه نیست)');
+      }
+    } catch (e) {
+      print('⚠️ خطا در بررسی deliveryDate: $e');
     }
   }
 
@@ -498,7 +491,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   }
 }
 
-// 🔥 کلاس _PaymentCard
 class _PaymentCard extends StatefulWidget {
   final PaymentModel payment;
   final VoidCallback onEdit;
@@ -638,10 +630,9 @@ class _PaymentCardState extends State<_PaymentCard> {
   }
 }
 
-// 🔥 کلاس _AddPaymentDialog
 class _AddPaymentDialog extends StatefulWidget {
-  final String appointmentId;  // 🔥 برای چک deposit
-  final String invoiceId;      // 🔥 برای ذخیره
+  final String appointmentId;
+  final String invoiceId;
   final List<BankModel> banks;
   final PaymentModel? payment;
 
@@ -881,8 +872,6 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
                     ),
                   ),
                 const SizedBox(height: 16),
-
-                // تاریخ دریافت
                 InkWell(
                   onTap: _selectDate,
                   child: Container(
@@ -913,10 +902,7 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                // بانک
                 Opacity(
                   opacity: _isCashPayment ? 0.5 : 1.0,
                   child: IgnorePointer(
@@ -950,9 +936,6 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
                     ),
                   ),
                 ),
-
-
-                // چک‌باکس نقدی
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 12),
                   decoration: BoxDecoration(
@@ -981,9 +964,7 @@ class _AddPaymentDialogState extends State<_AddPaymentDialog> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
                 Row(
                   children: [
                     Expanded(

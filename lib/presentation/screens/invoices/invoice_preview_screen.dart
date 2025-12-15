@@ -12,6 +12,9 @@ import '../../../core/utils/snackbar_helper.dart';
 import '../../../data/models/customer_model.dart';
 import '../../../data/models/invoice_model.dart';
 import '../../../data/models/service_model.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class InvoicePreviewScreen extends StatefulWidget {
   final InvoiceModel invoice;
@@ -49,6 +52,282 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
     setState(() => _isSharing = true);
 
     try {
+      // 🔥 انتخاب: PDF یا عکس؟
+      final shouldUsePdf = await _showFormatDialog();
+
+      if (shouldUsePdf == null) {
+        setState(() => _isSharing = false);
+        return;
+      }
+
+      if (shouldUsePdf) {
+        await _shareAsPdf();
+      } else {
+        await _shareAsImage();
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackBarHelper.showError(context, 'خطا در اشتراک‌گذاری: ${e.toString()}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSharing = false);
+      }
+    }
+  }
+
+// 🔥 دیالوگ انتخاب فرمت
+  Future<bool?> _showFormatDialog() async {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        elevation: 8,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 400),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [
+                Colors.white,
+                Colors.grey.shade50,
+              ],
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 🎨 هدر
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary,
+                      AppColors.primary.withOpacity(0.8),
+                    ],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.share_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'انتخاب فرمت اشتراک‌گذاری',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // 🎨 توضیحات
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                child: Text(
+                  'فاکتور به چه صورت  ارسال شود؟',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade700,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // 🎨 گزینه‌ها
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    // گزینه PDF
+                    _buildFormatOption(
+                      context: context,
+                      title: 'فایل PDF',
+                      subtitle: 'کیفیت بالا، مناسب چاپ',
+                      icon: Icons.picture_as_pdf,
+                      iconColor: Colors.red.shade600,
+                      gradientColors: [
+                        Colors.red.shade50,
+                        Colors.red.shade100.withOpacity(0.3),
+                      ],
+                      onTap: () => Navigator.pop(context, true),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // گزینه عکس
+                    _buildFormatOption(
+                      context: context,
+                      title: 'تصویر PNG',
+                      subtitle: 'مناسب ارسال سریع',
+                      icon: Icons.image_rounded,
+                      iconColor: Colors.blue.shade600,
+                      gradientColors: [
+                        Colors.blue.shade50,
+                        Colors.blue.shade100.withOpacity(0.3),
+                      ],
+                      onTap: () => Navigator.pop(context, false),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // 🎨 دکمه انصراف
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.grey.shade600,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                  child: const Text(
+                    'انصراف',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+// 🎨 ویجت گزینه (قابل استفاده مجدد)
+  Widget _buildFormatOption({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+    required List<Color> gradientColors,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: gradientColors,
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: iconColor.withOpacity(0.3),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: iconColor.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // آیکون
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: iconColor.withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                icon,
+                color: iconColor,
+                size: 28,
+              ),
+            ),
+
+            const SizedBox(width: 16),
+
+            // متن
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // آیکون فلش
+           //Icon(
+           //  Icons.arrow_back_ios_rounded,
+           //  color: iconColor.withOpacity(0.5),
+           //  size: 18,
+           //),
+          ],
+        ),
+      ),
+    );
+  }
+
+// 🔥 اشتراک‌گذاری به صورت عکس (قبلی)
+  Future<void> _shareAsImage() async {
+    try {
       final RenderRepaintBoundary boundary =
       _invoiceKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
 
@@ -60,19 +339,13 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
       final file = await File('${tempDir.path}/invoice_${widget.invoice.invoiceNumber}.png').create();
       await file.writeAsBytes(pngBytes);
 
+      final message = _getShareMessage();
+
+      // 🔥 مستقیم اشتراک‌گذاری (بدون دیالوگ)
       await Share.shareXFiles(
-        [XFile(file.path)],
-        text:
-        '${widget.customer.fullName} عزیز\n'
-            'با سلام و احترام\n'
-            'فاکتور خدمات عکاسی شما با شماره '
-            '${DateHelper.toPersianDigits(widget.invoice.invoiceNumber.toString())} '
-            'از آتلیه کودک فتولند برای شما ارسال می‌گردد.\n\n'
-            'مبلغ قابل پرداخت: '
-            '${DateHelper.toPersianDigits(ServiceModel.formatNumber(widget.grandTotal))} تومان\n\n'
-            'از اینکه آتلیه فتولند را برای ثبت لحظات زیبای خود انتخاب کردید، صمیمانه سپاسگزاریم.\n'
-            'در صورت نیاز به راهنمایی یا توضیحات بیشتر، با افتخار در خدمت شما هستیم.\n\n'
-            'با آرزوی لحظاتی شاد و ماندگار 🌸',
+        [XFile(file.path, mimeType: 'image/png')],
+        text: message,
+        subject: 'فاکتور شماره ${DateHelper.toPersianDigits(widget.invoice.invoiceNumber.toString())}',
       );
 
       if (mounted) {
@@ -82,11 +355,81 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
       if (mounted) {
         SnackBarHelper.showError(context, 'خطا در اشتراک‌گذاری: ${e.toString()}');
       }
-    } finally {
+    }
+  }
+
+// 🔥 اشتراک‌گذاری به صورت PDF (جدید)
+  Future<void> _shareAsPdf() async {
+    try {
+      final RenderRepaintBoundary boundary =
+      _invoiceKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+
+      final size = boundary.size;
+      final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final Uint8List imageBytes = byteData!.buffer.asUint8List();
+
+      final pdf = pw.Document();
+      final pdfImage = pw.MemoryImage(imageBytes);
+
+      final pageFormat = PdfPageFormat(
+        size.width * PdfPageFormat.point,
+        size.height * PdfPageFormat.point,
+        marginAll: 0,
+      );
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pageFormat,
+          margin: pw.EdgeInsets.zero,
+          build: (pw.Context context) {
+            return pw.Container(
+              width: double.infinity,
+              height: double.infinity,
+              child: pw.Image(
+                pdfImage,
+                fit: pw.BoxFit.fill,
+              ),
+            );
+          },
+        ),
+      );
+
+      final tempDir = await getTemporaryDirectory();
+      final pdfFile = File('${tempDir.path}/invoice_${widget.invoice.invoiceNumber}.pdf');
+      await pdfFile.writeAsBytes(await pdf.save());
+
+      final message = _getShareMessage();
+
+      // 🔥 مستقیم اشتراک‌گذاری (بدون دیالوگ)
+      await Share.shareXFiles(
+        [XFile(pdfFile.path, mimeType: 'application/pdf')],
+        text: message,
+        subject: 'فاکتور شماره ${DateHelper.toPersianDigits(widget.invoice.invoiceNumber.toString())}',
+      );
+
       if (mounted) {
-        setState(() => _isSharing = false);
+        SnackBarHelper.showSuccess(context, 'فاکتور PDF با موفقیت اشتراک‌گذاری شد');
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackBarHelper.showError(context, 'خطا در ساخت PDF: ${e.toString()}');
       }
     }
+  }
+
+// 🔥 متن اشتراک‌گذاری (جدا شده برای استفاده مجدد)
+  String _getShareMessage() {
+    return '${widget.customer.fullName} عزیز\n'
+        'با سلام و احترام\n'
+        'فاکتور خدمات عکاسی شما با شماره '
+        '${DateHelper.toPersianDigits(widget.invoice.invoiceNumber.toString())} '
+        'از آتلیه کودک فتولند برای شما ارسال می‌گردد.\n\n'
+        'مبلغ قابل پرداخت: '
+        '${DateHelper.toPersianDigits(ServiceModel.formatNumber(widget.grandTotal))} تومان\n\n'
+        'از اینکه آتلیه فتولند را برای ثبت لحظات زیبای خود انتخاب کردید، صمیمانه سپاسگزاریم.\n'
+        'در صورت نیاز به راهنمایی یا توضیحات بیشتر، با افتخار در خدمت شما هستیم.\n\n'
+        'با آرزوی لحظاتی شاد و ماندگار 🌸';
   }
 
   @override
@@ -112,6 +455,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                       RepaintBoundary(
                         key: _invoiceKey,
                         child: Container(
+                          // 🔥 حذف padding اضافی
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(20),
@@ -124,6 +468,7 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
                             ],
                           ),
                           child: Column(
+                            mainAxisSize: MainAxisSize.min, // 🔥 اضافه شد
                             children: [
                               _buildInvoiceHeader(),
                               _buildCustomerInfo(),

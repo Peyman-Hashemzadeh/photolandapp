@@ -217,9 +217,6 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
 
   Future<void> _handleContinue() async {
     if (!_formKey.currentState!.validate()) {
-      return;
-    }
-    if (!_formKey.currentState!.validate()) {
       FocusScope.of(context).unfocus();
       return;
     }
@@ -246,16 +243,49 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
 
       // مشتری جدید یا موجود
       if (widget.isNewCustomer) {
-        // ثبت مشتری جدید
-        final newCustomer = CustomerModel(
-          id: '',
-          fullName: _newCustomerNameController.text.trim(),
-          mobileNumber: Validators.cleanMobileNumber(_newCustomerMobileController.text),
-          createdAt: DateTime.now(),
-        );
+        final mobileNumber = Validators.cleanMobileNumber(_newCustomerMobileController.text);
 
-        final customerId = await _customerRepository.addCustomer(newCustomer);
-        customer = newCustomer.copyWith(id: customerId);
+        // 🔥 چک کردن تکراری بودن شماره
+        final existingCustomer = await _customerRepository.getCustomerByMobile(mobileNumber);
+
+        if (existingCustomer != null) {
+          // 🔥 شماره تکراری است - نمایش دیالوگ تایید
+          if (!mounted) return;
+
+          final shouldUsExisting = await _showDuplicatePhoneDialog(
+            existingCustomer: existingCustomer,
+            newName: _newCustomerNameController.text.trim(),
+          );
+
+          if (shouldUsExisting == null) {
+            // کاربر انصراف داد
+            setState(() => _isLoading = false);
+            return;
+          }
+
+          if (shouldUsExisting) {
+            // استفاده از مشتری موجود
+            customer = existingCustomer;
+          } else {
+            // به‌روزرسانی اطلاعات مشتری موجود
+            customer = existingCustomer.copyWith(
+              fullName: _newCustomerNameController.text.trim(),
+              updatedAt: DateTime.now(),
+            );
+            await _customerRepository.updateCustomer(customer);
+          }
+        } else {
+          // مشتری جدید - ذخیره
+          final newCustomer = CustomerModel(
+            id: '',
+            fullName: _newCustomerNameController.text.trim(),
+            mobileNumber: mobileNumber,
+            createdAt: DateTime.now(),
+          );
+
+          final customerId = await _customerRepository.addCustomer(newCustomer);
+          customer = newCustomer.copyWith(id: customerId);
+        }
       } else {
         if (_selectedCustomer == null) {
           SnackBarHelper.showError(context, 'لطفا مشتری را انتخاب کنید');
@@ -326,6 +356,192 @@ class _AddAppointmentScreenState extends State<AddAppointmentScreen> {
         );
       }
     }
+  }
+
+  // 🔥 دیالوگ برای شماره تکراری
+  Future<bool?> _showDuplicatePhoneDialog({
+    required CustomerModel existingCustomer,
+    required String newName,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 400),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // آیکون هشدار
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange.shade700,
+                  size: 48,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // عنوان
+              const Text(
+                'شماره همراه تکراری',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 16),
+
+              // متن توضیحات
+              RichText(
+                textAlign: TextAlign.center,
+                text: TextSpan(
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.6,
+                    color: AppColors.textSecondary,
+                    fontFamily: 'Vazirmatn',
+                  ),
+                  children: [
+                    const TextSpan(
+                      text: 'این شماره همراه قبلاً با نام ',
+                    ),
+                    TextSpan(
+                      text: '"${existingCustomer.fullName}"',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const TextSpan(
+                      text: ' ثبت شده است.',
+                    ),
+                  ],
+                ),
+              ),
+
+              if (newName != existingCustomer.fullName) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.info.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.info.withOpacity(0.3),
+                    ),
+                  ),
+                  child: RichText(
+                    textAlign: TextAlign.center,
+                    text: TextSpan(
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.5,
+                        color: AppColors.info,
+                        fontFamily: 'Vazirmatn',
+                      ),
+                      children: [
+                        const TextSpan(
+                          text: 'شما نام ',
+                        ),
+                        TextSpan(
+                          text: '"$newName"',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const TextSpan(
+                          text: ' را وارد کرده‌اید.',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 24),
+
+              // دکمه‌ها
+              Column(
+                children: [
+                  // دکمه استفاده از اطلاعات موجود
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.pop(context, true),
+                      icon: const Icon(Icons.check_circle_outline, size: 20),
+                      label: Text(
+                        'ثبت نوبت برای "${existingCustomer.fullName}"',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+
+                  if (newName != existingCustomer.fullName) ...[
+                    const SizedBox(height: 12),
+
+                    // دکمه به‌روزرسانی نام
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.pop(context, false),
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        label: Text(
+                          'به‌روزرسانی به "$newName"',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.info,
+                          side: BorderSide(color: AppColors.info.withOpacity(0.5)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 12),
+
+                  // دکمه انصراف
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.grey.shade600,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('انصراف و بازگشت'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<bool?> _showOverlapDialog(List<AppointmentModel> overlapping) {
