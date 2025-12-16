@@ -217,7 +217,7 @@ class _DebtorsReportScreenState extends State<DebtorsReportScreen> {
                     icon: Icons.check_circle_outline,
                     message: _searchController.text.isEmpty
                         ? 'بدهکاری وجود ندارد! 🎉'
-                        : 'نتیجه‌ای یافت نشد',
+                        : 'نتیجه‌ای یافت نشد.',
                   )
                       : _buildDebtorsList(),
                 ),
@@ -375,7 +375,7 @@ class _DebtorsReportScreenState extends State<DebtorsReportScreen> {
     } else if (totalDebt >= 1000000) {
       debtColor = Colors.orange;
     } else {
-      debtColor = Colors.amber.shade700;
+      debtColor = Colors.orangeAccent;
     }
 
     return GestureDetector(
@@ -390,7 +390,7 @@ class _DebtorsReportScreenState extends State<DebtorsReportScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: debtColor.withOpacity(0.3)),
+          border: Border.all(color: Colors.blue.shade50),
           boxShadow: [
             BoxShadow(
               color: debtColor.withOpacity(0.1),
@@ -408,7 +408,7 @@ class _DebtorsReportScreenState extends State<DebtorsReportScreen> {
                 children: [
                   Icon(
                     isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                    color: debtColor,
+                    color: Colors.grey,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -442,7 +442,7 @@ class _DebtorsReportScreenState extends State<DebtorsReportScreen> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        DateHelper.toPersianDigits(_formatNumber(totalDebt)),
+                        '${DateHelper.toPersianDigits(_formatNumber(totalDebt))} ت',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -536,7 +536,7 @@ class _DebtorsReportScreenState extends State<DebtorsReportScreen> {
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
               ),
               Text(
-                DateHelper.toPersianDigits(_formatNumber(grandTotal)),
+                '${DateHelper.toPersianDigits(_formatNumber(grandTotal))} ت',
                 style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
               ),
             ],
@@ -550,7 +550,7 @@ class _DebtorsReportScreenState extends State<DebtorsReportScreen> {
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
               ),
               Text(
-                DateHelper.toPersianDigits(_formatNumber(paidAmount)),
+                '${DateHelper.toPersianDigits(_formatNumber(paidAmount))} ت',
                 style: const TextStyle(fontSize: 13, color: AppColors.success),
               ),
             ],
@@ -564,7 +564,7 @@ class _DebtorsReportScreenState extends State<DebtorsReportScreen> {
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.error),
               ),
               Text(
-                DateHelper.toPersianDigits(_formatNumber(remaining)),
+                '${DateHelper.toPersianDigits(_formatNumber(remaining))} ت',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,

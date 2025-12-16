@@ -505,10 +505,10 @@ class _YearlyPerformanceReportScreenState extends State<YearlyPerformanceReportS
             const SizedBox(width: 12),
             Expanded(
               child: _buildStatCard(
-                'درآمد سال',
-                '${DateHelper.toPersianDigits(_formatNumber(_totalIncome))} تومان',
-                Icons.trending_up,
-                AppColors.success,
+                'مجموع دریافتی',
+                '${DateHelper.toPersianDigits(_formatNumber(_totalPayments))} تومان',
+                Icons.account_balance_wallet_outlined,
+                AppColors.primary,
               ),
             ),
           ],
@@ -518,10 +518,10 @@ class _YearlyPerformanceReportScreenState extends State<YearlyPerformanceReportS
           children: [
             Expanded(
               child: _buildStatCard(
-                'مجموع دریافتی',
-                '${DateHelper.toPersianDigits(_formatNumber(_totalPayments))} تومان',
-                Icons.account_balance_wallet_outlined,
-                AppColors.primary,
+                'درآمد سال',
+                '${DateHelper.toPersianDigits(_formatNumber(_totalIncome))} تومان',
+                Icons.trending_up,
+                AppColors.success,
               ),
             ),
             const SizedBox(width: 12),
@@ -586,7 +586,7 @@ class _YearlyPerformanceReportScreenState extends State<YearlyPerformanceReportS
     final isProfit = _netProfit >= 0;
     final color = isProfit ? AppColors.success : AppColors.error;
     final icon = isProfit ? Icons.arrow_upward : Icons.arrow_downward;
-    final label = isProfit ? 'سود سال' : 'زیان سال';
+    final label = isProfit ? 'سود سال:' : 'زیان سال:';
 
     return Container(
       width: double.infinity,
@@ -647,7 +647,7 @@ class _YearlyPerformanceReportScreenState extends State<YearlyPerformanceReportS
         children: [
           const Row(
             children: [
-              Icon(Icons.emoji_events, color: Colors.amber, size: 20),
+             // Icon(Icons.emoji_events, color: Colors.amber, size: 20),
               SizedBox(width: 8),
               Text(
                 'برترین مشتریان سال',
@@ -681,7 +681,7 @@ class _YearlyPerformanceReportScreenState extends State<YearlyPerformanceReportS
                     ),
                   ),
                   Text(
-                    DateHelper.toPersianDigits(_formatNumber(customer['amount'] as int)),
+                    '${DateHelper.toPersianDigits(_formatNumber(customer['amount'] as int))} ت',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -741,7 +741,7 @@ class _YearlyPerformanceReportScreenState extends State<YearlyPerformanceReportS
           ),
           const SizedBox(height: 8),
           Text(
-            DateHelper.toPersianDigits(_formatNumber(amount)),
+            '${DateHelper.toPersianDigits(_formatNumber(amount))} تومان',
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,

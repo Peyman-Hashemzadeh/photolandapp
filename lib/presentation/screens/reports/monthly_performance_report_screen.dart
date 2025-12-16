@@ -528,17 +528,17 @@ class _MonthlyPerformanceReportScreenState extends State<MonthlyPerformanceRepor
               child: _buildStatCard(
                 'تعداد نوبت',
                 DateHelper.toPersianDigits(_appointmentsCount.toString()),
-                Icons.event_note,
+                Icons.camera_alt_outlined,
                 AppColors.info,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _buildStatCard(
-                'درآمد ماه',
-                '${DateHelper.toPersianDigits(_formatNumber(_totalIncome))} تومان',
-                Icons.trending_up,
-                AppColors.success,
+                'مجموع دریافتی',
+                '${DateHelper.toPersianDigits(_formatNumber(_totalPayments))} تومان',
+                Icons.account_balance_wallet_outlined,
+                AppColors.primary,
               ),
             ),
           ],
@@ -548,10 +548,10 @@ class _MonthlyPerformanceReportScreenState extends State<MonthlyPerformanceRepor
           children: [
             Expanded(
               child: _buildStatCard(
-                'مجموع دریافتی',
-                '${DateHelper.toPersianDigits(_formatNumber(_totalPayments))} تومان',
-                Icons.account_balance_wallet,
-                AppColors.primary,
+                'درآمد ماه',
+                '${DateHelper.toPersianDigits(_formatNumber(_totalIncome))} تومان',
+                Icons.trending_up,
+                AppColors.success,
               ),
             ),
             const SizedBox(width: 12),
@@ -616,7 +616,7 @@ class _MonthlyPerformanceReportScreenState extends State<MonthlyPerformanceRepor
     final isProfit = _netProfit >= 0;
     final color = isProfit ? AppColors.success : AppColors.error;
     final icon = isProfit ? Icons.arrow_upward : Icons.arrow_downward;
-    final label = isProfit ? 'سود ماه' : 'زیان ماه';
+    final label = isProfit ? 'سود ماه:' : 'زیان ماه:';
 
     return Container(
       width: double.infinity,
@@ -677,7 +677,7 @@ class _MonthlyPerformanceReportScreenState extends State<MonthlyPerformanceRepor
         children: [
           const Row(
             children: [
-              Icon(Icons.emoji_events, color: Colors.amber, size: 20),
+              //Icon(Icons.emoji_events, color: Colors.amber, size: 20),
               SizedBox(width: 8),
               Text(
                 'برترین مشتریان',
@@ -700,7 +700,7 @@ class _MonthlyPerformanceReportScreenState extends State<MonthlyPerformanceRepor
               child: Row(
                 children: [
                   Text(medals[index], style: const TextStyle(fontSize: 20)),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       customer['name'] as String,
@@ -711,7 +711,7 @@ class _MonthlyPerformanceReportScreenState extends State<MonthlyPerformanceRepor
                     ),
                   ),
                   Text(
-                    DateHelper.toPersianDigits(_formatNumber(customer['amount'] as int)),
+    '${DateHelper.toPersianDigits(_formatNumber(customer['amount'] as int))} ت',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -768,7 +768,7 @@ class _MonthlyPerformanceReportScreenState extends State<MonthlyPerformanceRepor
           ),
           const SizedBox(height: 8),
           Text(
-            DateHelper.toPersianDigits(_formatNumber(_bestDay['amount']!)),
+            '${DateHelper.toPersianDigits(_formatNumber(_bestDay['amount']!))} تومان',
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,

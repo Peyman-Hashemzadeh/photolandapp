@@ -222,12 +222,12 @@ class _InitialDialogState extends State<_InitialDialog> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedCustomer == null) {
-      SnackBarHelper.showError(context, 'لطفا مشتری را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا مشتری را انتخاب کنید!');
       return;
     }
 
     if (_selectedDate == null) {
-      SnackBarHelper.showError(context, 'لطفا تاریخ فاکتور را انتخاب کنید');
+      SnackBarHelper.showError(context, 'لطفا تاریخ فاکتور را انتخاب کنید!');
       return;
     }
 
@@ -254,7 +254,7 @@ class _InitialDialogState extends State<_InitialDialog> {
           });
 
           if (mounted) {
-            SnackBarHelper.showSuccess(context, 'مشخصات فاکتور ویرایش شد');
+            SnackBarHelper.showSuccess(context, 'مشخصات فاکتور ویرایش شد.');
           }
         }
       } catch (e) {

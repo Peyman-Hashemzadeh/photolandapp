@@ -378,7 +378,7 @@ class _WeeklyPerformanceReportScreenState extends State<WeeklyPerformanceReportS
                       ),
                     ],
                   ),
-                  const Icon(Icons.calendar_today, color: AppColors.primary, size: 17),
+                  //const Icon(Icons.calendar_today, color: AppColors.primary, size: 17),
                 ],
               ),
             ),
@@ -422,10 +422,10 @@ class _WeeklyPerformanceReportScreenState extends State<WeeklyPerformanceReportS
             const SizedBox(width: 12),
             Expanded(
               child: _buildStatCard(
-                'میزان درآمد',
-                '${DateHelper.toPersianDigits(_formatNumber(_totalIncome))} تومان',
-                Icons.trending_up,
-                AppColors.success,
+                'مجموع دریافتی',
+                '${DateHelper.toPersianDigits(_formatNumber(_totalPayments))} تومان',
+                Icons.account_balance_wallet_outlined,
+                AppColors.primary,
               ),
             ),
           ],
@@ -435,10 +435,10 @@ class _WeeklyPerformanceReportScreenState extends State<WeeklyPerformanceReportS
           children: [
             Expanded(
               child: _buildStatCard(
-                'مجموع دریافتی',
-                '${DateHelper.toPersianDigits(_formatNumber(_totalPayments))} تومان',
-                Icons.account_balance_wallet_outlined,
-                AppColors.primary,
+                'میزان درآمد',
+                '${DateHelper.toPersianDigits(_formatNumber(_totalIncome))} تومان',
+                Icons.trending_up,
+                AppColors.success,
               ),
             ),
             const SizedBox(width: 12),
@@ -506,7 +506,7 @@ class _WeeklyPerformanceReportScreenState extends State<WeeklyPerformanceReportS
     final isProfit = _netProfit >= 0;
     final color = isProfit ? AppColors.success : AppColors.error;
     final icon = isProfit ? Icons.arrow_upward : Icons.arrow_downward;
-    final label = isProfit ? 'سود هفته' : 'زیان هفته';
+    final label = isProfit ? 'سود هفته:' : 'زیان هفته:';
 
     return Container(
       width: double.infinity,
@@ -586,7 +586,7 @@ class _WeeklyPerformanceReportScreenState extends State<WeeklyPerformanceReportS
           ),
           const SizedBox(height: 20),
           SizedBox(
-            height: 200,
+            height: 220,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -610,8 +610,8 @@ class _WeeklyPerformanceReportScreenState extends State<WeeklyPerformanceReportS
                           Text(
                             DateHelper.toPersianDigits(
                                 income > 1000000
-                                    ? '${(income / 1000000).toStringAsFixed(1)}M'
-                                    : '${(income / 1000).toStringAsFixed(0)}K'
+                                    ? '${(income / 1000000).toStringAsFixed(1)} م'
+                                    : '${(income / 1000).toStringAsFixed(0)} هزار'
                             ),
                             style: TextStyle(
                               fontSize: 10,
